@@ -2,7 +2,10 @@
 -- Mahalashmi Stores - Complete Deployment Schema
 --
 -- PRODUCTION READY: All tables, functions, policies, and migrations merged
--- This is the ONLY file needed for fresh deployment
+-- This is the ONLY file needed for fresh deployment, and it is safe to re-run on
+-- the live database: tables are only created if missing, every function it drops
+-- is recreated, invoice numbers continue from the current number, and existing
+-- store settings are never overwritten.
 -- Generated: 2026-09-27
 -- ============================================================================
 
@@ -13,16 +16,27 @@ CREATE EXTENSION IF NOT EXISTS pgcrypto;
 -- Aggressive cleanup for function overloads and old versions
 -- ============================================================================
 
-DROP FUNCTION IF EXISTS public.complete_advance_order_v2 CASCADE;
-DROP FUNCTION IF EXISTS public.add_advance_order_event CASCADE;
-DROP FUNCTION IF EXISTS public.update_advance_order_status CASCADE;
-DROP FUNCTION IF EXISTS public.create_advance_order CASCADE;
-DROP FUNCTION IF EXISTS public.create_barcode_and_receive_stock CASCADE;
-DROP FUNCTION IF EXISTS public.get_public_invoice_by_number CASCADE;
-DROP FUNCTION IF EXISTS public.create_order_without_stock CASCADE;
-DROP FUNCTION IF EXISTS public.create_order_with_stock CASCADE;
-DROP FUNCTION IF EXISTS public.complete_pos_sale_with_inventory CASCADE;
-DROP FUNCTION IF EXISTS public.adjust_inventory_stock CASCADE;
+-- Drops every version (overload) of these functions; a plain DROP FUNCTION name
+-- fails when a function has more than one version. All are recreated below.
+DO $$
+DECLARE r RECORD;
+BEGIN
+  FOR r IN
+    SELECT p.oid::regprocedure AS sig
+    FROM pg_proc p
+    JOIN pg_namespace n ON n.oid = p.pronamespace
+    WHERE n.nspname = 'public'
+      AND p.proname IN (
+        'complete_advance_order_v2', 'add_advance_order_event', 'update_advance_order_status',
+        'create_advance_order', 'create_barcode_and_receive_stock', 'get_public_invoice_by_number',
+        'create_order_without_stock', 'create_order_with_stock', 'complete_pos_sale_with_inventory',
+        'adjust_inventory_stock', 'mark_credit_order_paid', 'get_expense_summary_metrics',
+        'generate_barcode_value'
+      )
+  LOOP
+    EXECUTE 'DROP FUNCTION ' || r.sig::TEXT || ' CASCADE';
+  END LOOP;
+END $$;
 
 -- ============================================================================
 -- SEQUENCES
@@ -276,13 +290,6 @@ CREATE TABLE IF NOT EXISTS public.order_items (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE TABLE IF NOT EXISTS public.invoice_counter (
-  id SMALLINT PRIMARY KEY DEFAULT 1 CHECK (id = 1),
-  counter BIGINT NOT NULL DEFAULT 0,
-  year INTEGER NOT NULL DEFAULT EXTRACT(YEAR FROM NOW())::INTEGER,
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
 CREATE TABLE IF NOT EXISTS public.store_settings (
   id SMALLINT PRIMARY KEY DEFAULT 1 CHECK (id = 1),
   name TEXT NOT NULL DEFAULT 'New Mahalashmi Stores',
@@ -291,7 +298,7 @@ CREATE TABLE IF NOT EXISTS public.store_settings (
   email TEXT NOT NULL DEFAULT 'senthamil75714@gmail.com',
   address TEXT NOT NULL DEFAULT '5/85, Teacher''s Colony, Masinaickanpatty, Ayyothiyapattanam, Salem - 636103',
   gst_enabled BOOLEAN NOT NULL DEFAULT FALSE,
-  instagram_handle TEXT NOT NULL DEFAULT '@mahalashmi_stores',
+  instagram_handle TEXT NOT NULL DEFAULT 'mahalashmi_stores',
   low_stock_threshold NUMERIC(12,3) NOT NULL DEFAULT 5,
   logo_url TEXT,
   admin_id TEXT,
@@ -460,6 +467,14 @@ BEGIN
     ALTER TABLE public.product_variants ADD COLUMN expiry_date DATE;
   END IF;
 END $$;
+
+-- The app saves a reference number on advance orders.
+ALTER TABLE public.advance_orders ADD COLUMN IF NOT EXISTS reference_number TEXT NOT NULL DEFAULT '';
+
+-- Columns added to product_variants after some databases were created.
+ALTER TABLE public.product_variants ADD COLUMN IF NOT EXISTS quantity NUMERIC(12,3);
+ALTER TABLE public.product_variants ADD COLUMN IF NOT EXISTS quantity_unit_id BIGINT REFERENCES public.unit_types(id) ON DELETE SET NULL;
+ALTER TABLE public.product_variants ADD COLUMN IF NOT EXISTS damage_stock NUMERIC(12,3) NOT NULL DEFAULT 0;
 
 CREATE INDEX IF NOT EXISTS idx_unit_conversions ON public.unit_conversions(from_unit_id, to_unit_id);
 CREATE INDEX IF NOT EXISTS idx_price_history_product ON public.product_price_history(product_id, created_at DESC);
@@ -700,6 +715,16 @@ $$;
 -- ============================================================================
 
 CREATE SEQUENCE IF NOT EXISTS public.invoice_no_seq START WITH 1 INCREMENT BY 1;
+
+-- Continue after any sequential invoice numbers that already exist (never goes backwards).
+SELECT setval(
+  'public.invoice_no_seq',
+  GREATEST(
+    COALESCE((SELECT MAX(SUBSTRING(invoice_no FROM 4)::BIGINT) FROM public.orders WHERE invoice_no ~ '^INV[0-9]{16}$'), 0),
+    (SELECT CASE WHEN is_called THEN last_value ELSE last_value - 1 END FROM public.invoice_no_seq)
+  ) + 1,
+  false
+);
 
 CREATE OR REPLACE FUNCTION public.next_invoice_no()
 RETURNS TEXT
@@ -1050,6 +1075,230 @@ BEGIN
 END;
 $$;
 
+-- Returns the full advance order row: the app replaces its list entry with it.
+CREATE OR REPLACE FUNCTION public.update_advance_order_status(
+  p_order_id UUID, p_status TEXT, p_remarks TEXT DEFAULT ''
+)
+RETURNS JSON
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_row public.advance_orders;
+BEGIN
+  IF p_status = 'completed' THEN
+    RAISE EXCEPTION 'Use complete_advance_order_v2 to complete an advance order';
+  END IF;
+
+  UPDATE public.advance_orders
+  SET status = p_status,
+      remarks = COALESCE(NULLIF(p_remarks, ''), remarks),
+      updated_at = NOW()
+  WHERE id = p_order_id
+  RETURNING * INTO v_row;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Advance order not found';
+  END IF;
+
+  INSERT INTO public.advance_order_timeline (advance_order_id, event_type, label, remarks)
+  VALUES (
+    p_order_id, p_status,
+    CASE p_status
+      WHEN 'ready_for_delivery' THEN 'Ready for Pickup'
+      WHEN 'waiting_final_payment' THEN 'Customer Contacted'
+      WHEN 'cancelled' THEN 'Cancelled'
+      ELSE 'Pending Deposit'
+    END,
+    COALESCE(p_remarks, '')
+  );
+
+  RETURN row_to_json(v_row);
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION public.add_advance_order_event(
+  p_order_id UUID, p_event_type TEXT, p_label TEXT, p_remarks TEXT DEFAULT ''
+)
+RETURNS JSON
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_row public.advance_order_timeline;
+BEGIN
+  INSERT INTO public.advance_order_timeline (advance_order_id, event_type, label, remarks)
+  VALUES (p_order_id, p_event_type, p_label, COALESCE(p_remarks, ''))
+  RETURNING * INTO v_row;
+
+  RETURN row_to_json(v_row);
+END;
+$$;
+
+-- Assigns a barcode to a product or variant (reusing it if it is already theirs)
+-- and optionally receives stock, logging an inventory movement.
+CREATE OR REPLACE FUNCTION public.create_barcode_and_receive_stock(
+  p_product_id INTEGER, p_variant_id TEXT DEFAULT NULL,
+  p_quantity_received NUMERIC DEFAULT 1, p_unit_cost NUMERIC DEFAULT NULL,
+  p_created_by_name TEXT DEFAULT 'Admin', p_custom_barcode TEXT DEFAULT NULL,
+  p_note TEXT DEFAULT ''
+)
+RETURNS JSON
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_variant_id UUID := NULLIF(TRIM(COALESCE(p_variant_id, '')), '')::UUID;
+  v_entity TEXT := CASE WHEN NULLIF(TRIM(COALESCE(p_variant_id, '')), '') IS NULL THEN 'product' ELSE 'variant' END;
+  v_qty NUMERIC := GREATEST(0, COALESCE(p_quantity_received, 0));
+  v_by TEXT := COALESCE(NULLIF(p_created_by_name, ''), 'Admin');
+  v_barcode public.barcode_registry;
+  v_value TEXT;
+  v_is_new BOOLEAN := FALSE;
+  v_before NUMERIC := 0;
+  v_after NUMERIC := 0;
+  v_product_name TEXT;
+  v_variant_name TEXT;
+BEGIN
+  SELECT name INTO v_product_name FROM public.products WHERE id = p_product_id;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Product % not found', p_product_id;
+  END IF;
+  IF v_variant_id IS NOT NULL THEN
+    SELECT variant_name INTO v_variant_name FROM public.product_variants WHERE id = v_variant_id AND product_id = p_product_id;
+    IF NOT FOUND THEN
+      RAISE EXCEPTION 'Variant not found for this product';
+    END IF;
+  END IF;
+
+  v_value := UPPER(NULLIF(TRIM(COALESCE(p_custom_barcode, '')), ''));
+
+  IF v_value IS NOT NULL THEN
+    SELECT * INTO v_barcode FROM public.barcode_registry WHERE UPPER(barcode_value) = v_value;
+    IF FOUND AND (v_barcode.product_id <> p_product_id OR v_barcode.variant_id IS DISTINCT FROM v_variant_id) THEN
+      RAISE EXCEPTION 'Barcode % is already assigned to another item', v_value;
+    END IF;
+  ELSE
+    -- No barcode given: reuse the item's active barcode, or generate a new one.
+    SELECT * INTO v_barcode FROM public.barcode_registry
+    WHERE product_id = p_product_id AND variant_id IS NOT DISTINCT FROM v_variant_id AND is_active
+    ORDER BY created_at LIMIT 1;
+    IF NOT FOUND THEN
+      v_value := public.generate_barcode_value(v_entity);
+    END IF;
+  END IF;
+
+  IF v_barcode.id IS NULL THEN
+    INSERT INTO public.barcode_registry (barcode_value, entity_type, product_id, variant_id, is_active, created_by_name)
+    VALUES (v_value, v_entity, p_product_id, v_variant_id, TRUE, v_by)
+    RETURNING * INTO v_barcode;
+    v_is_new := TRUE;
+  ELSIF NOT v_barcode.is_active THEN
+    UPDATE public.barcode_registry SET is_active = TRUE, updated_at = NOW() WHERE id = v_barcode.id;
+  END IF;
+
+  -- Keep the barcode on the item itself so scans that fall back to it still match.
+  IF v_variant_id IS NOT NULL THEN
+    UPDATE public.product_variants SET barcode = v_barcode.barcode_value, updated_at = NOW()
+    WHERE id = v_variant_id AND COALESCE(barcode, '') = '';
+    SELECT stock INTO v_before FROM public.product_variants WHERE id = v_variant_id FOR UPDATE;
+  ELSE
+    UPDATE public.products SET barcode = v_barcode.barcode_value, updated_at = NOW()
+    WHERE id = p_product_id AND COALESCE(barcode, '') = '';
+    SELECT stock_quantity INTO v_before FROM public.products WHERE id = p_product_id FOR UPDATE;
+  END IF;
+  v_before := COALESCE(v_before, 0);
+  v_after := v_before + v_qty;
+
+  IF v_qty > 0 THEN
+    IF v_variant_id IS NOT NULL THEN
+      UPDATE public.product_variants SET stock = v_after, updated_at = NOW() WHERE id = v_variant_id;
+    ELSE
+      UPDATE public.products SET stock_quantity = v_after, updated_at = NOW() WHERE id = p_product_id;
+    END IF;
+
+    INSERT INTO public.inventory_movements (
+      product_id, variant_id, barcode_id, movement_type, quantity_delta, quantity_before, quantity_after,
+      unit_cost, reference_type, reference_id, note, created_by_name
+    ) VALUES (
+      p_product_id, v_variant_id, v_barcode.id,
+      CASE WHEN v_is_new THEN 'INITIAL_BARCODE_STOCK' ELSE 'RESTOCK' END,
+      v_qty, v_before, v_after, p_unit_cost, 'barcode', v_barcode.id::TEXT, COALESCE(p_note, ''), v_by
+    );
+  END IF;
+
+  RETURN json_build_object(
+    'success', TRUE,
+    'barcode_id', v_barcode.id::TEXT,
+    'barcode_value', v_barcode.barcode_value,
+    'is_new_barcode', v_is_new,
+    'movement_type', CASE WHEN v_qty = 0 THEN 'NONE' WHEN v_is_new THEN 'INITIAL_BARCODE_STOCK' ELSE 'RESTOCK' END,
+    'quantity_before', v_before,
+    'quantity_received', v_qty,
+    'quantity_after', v_after,
+    'product_id', p_product_id,
+    'variant_id', v_variant_id::TEXT,
+    'product_name', v_product_name,
+    'variant_name', v_variant_name
+  );
+END;
+$$;
+
+-- Legacy fallback used by the app only when the newer order RPCs are missing.
+CREATE OR REPLACE FUNCTION public.create_order_without_stock(
+  p_customer_name TEXT, p_phone TEXT, p_address TEXT, p_items JSONB,
+  p_shipping NUMERIC, p_status TEXT, p_order_mode TEXT, p_order_type TEXT,
+  p_delivery_charge NUMERIC, p_discount_amount NUMERIC,
+  p_manual_discount_amount NUMERIC, p_manual_discount_type TEXT,
+  p_manual_discount_value NUMERIC, p_coupon_code TEXT, p_coupon_percentage NUMERIC
+)
+RETURNS JSON
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_order_id UUID := gen_random_uuid();
+  v_invoice_no TEXT := public.next_invoice_no();
+  v_now TIMESTAMPTZ := NOW();
+BEGIN
+  INSERT INTO public.orders (
+    id, invoice_no, customer_name, phone, address, items, shipping,
+    status, order_mode, order_type, delivery_charge, discount_amount,
+    manual_discount_amount, manual_discount_type, manual_discount_value,
+    coupon_code, coupon_percentage, created_at, updated_at
+  ) VALUES (
+    v_order_id, v_invoice_no, p_customer_name, p_phone, p_address, p_items,
+    COALESCE(p_shipping, 0), COALESCE(p_status, 'pending'), COALESCE(p_order_mode, 'online'),
+    COALESCE(p_order_type, 'pos_sale'), COALESCE(p_delivery_charge, 0), COALESCE(p_discount_amount, 0),
+    COALESCE(p_manual_discount_amount, 0), COALESCE(p_manual_discount_type, 'flat'),
+    COALESCE(p_manual_discount_value, 0), p_coupon_code, COALESCE(p_coupon_percentage, 0),
+    v_now, v_now
+  );
+
+  RETURN json_build_object('order_id', v_order_id::TEXT, 'invoice_no', v_invoice_no, 'created_at', v_now);
+END;
+$$;
+
+-- Every RPC the app calls must be executable by the portal (anon) and signed-in users.
+GRANT EXECUTE ON FUNCTION
+  public.complete_pos_sale_with_inventory(TEXT, TEXT, TEXT, JSONB, NUMERIC, TEXT, TEXT, TEXT, NUMERIC, NUMERIC, NUMERIC, TEXT, NUMERIC, TEXT, NUMERIC, NUMERIC, BOOLEAN, TEXT, JSONB, TEXT, BOOLEAN),
+  public.create_order_with_stock(TEXT, TEXT, TEXT, JSONB, NUMERIC, TEXT, TEXT, TEXT, NUMERIC, NUMERIC, NUMERIC, TEXT, NUMERIC, TEXT, NUMERIC, NUMERIC, BOOLEAN, TEXT, JSONB, TEXT, BOOLEAN),
+  public.create_order_without_stock(TEXT, TEXT, TEXT, JSONB, NUMERIC, TEXT, TEXT, TEXT, NUMERIC, NUMERIC, NUMERIC, TEXT, NUMERIC, TEXT, NUMERIC),
+  public.get_public_invoice_by_number(TEXT),
+  public.adjust_inventory_stock(INTEGER, TEXT, NUMERIC, TEXT, TEXT, TEXT),
+  public.create_advance_order(TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, NUMERIC, NUMERIC, TEXT, TEXT, TEXT, TEXT, JSONB),
+  public.complete_advance_order_v2(UUID, TEXT, NUMERIC, TEXT, NUMERIC, NUMERIC, TEXT),
+  public.update_advance_order_status(UUID, TEXT, TEXT),
+  public.add_advance_order_event(UUID, TEXT, TEXT, TEXT),
+  public.create_barcode_and_receive_stock(INTEGER, TEXT, NUMERIC, NUMERIC, TEXT, TEXT, TEXT),
+  public.get_expense_summary_metrics(DATE),
+  public.generate_barcode_value(TEXT)
+TO anon, authenticated;
+
 -- ============================================================================
 -- ROW LEVEL SECURITY POLICIES
 -- ============================================================================
@@ -1134,10 +1383,6 @@ CREATE POLICY customers_all ON public.customers FOR ALL USING (TRUE) WITH CHECK 
 -- SEED DATA - MAHALASHMI STORES (Fresh Deployment)
 -- ============================================================================
 
-INSERT INTO public.invoice_counter (id, counter, year)
-VALUES (1, 0, EXTRACT(YEAR FROM NOW())::INTEGER)
-ON CONFLICT (id) DO NOTHING;
-
 INSERT INTO public.categories (name_en, name_ta, is_active, sort_order) VALUES
   ('Spices', 'Spices', TRUE, 1),
   ('Grains', 'Grains', TRUE, 2),
@@ -1158,19 +1403,12 @@ VALUES (
   '9865975714, 8668151051',
   'senthamil75714@gmail.com',
   '5/85, Teacher''s Colony, Masinaickanpatty, Ayyothiyapattanam, Salem - 636103',
-  '@mahalashmi_stores',
+  'mahalashmi_stores',
   '9865975714, 8668151051',
   '#2E7D32'
 )
-ON CONFLICT (id) DO UPDATE SET
-  name = 'New Mahalashmi Stores',
-  owner_name = 'M. Senthamil',
-  phone = '9865975714, 8668151051',
-  email = 'senthamil75714@gmail.com',
-  address = '5/85, Teacher''s Colony, Masinaickanpatty, Ayyothiyapattanam, Salem - 636103',
-  instagram_handle = '@mahalashmi_stores',
-  shop_contact_number = '9865975714, 8668151051',
-  accent_color = '#2E7D32';
+-- Only seeds a fresh database: never overwrite settings the shop has edited.
+ON CONFLICT (id) DO NOTHING;
 
 -- ============================================================================
 -- END OF SCHEMA
