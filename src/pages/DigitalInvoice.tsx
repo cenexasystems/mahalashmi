@@ -6,7 +6,7 @@ import { Printer, ArrowLeft, MessageCircle } from 'lucide-react'
 import { printThermalReceipt } from '../lib/thermalPrint'
 import { invoicePdfFile } from '../lib/invoicePdf'
 import { uploadInvoicePdf } from '../lib/storage'
-import { isUuid, normalizeStructuredOrderItem, formatInvoiceNo } from '../lib/retail'
+import { isUuid, normalizeStructuredOrderItem, formatInvoiceNo, formatPaymentMode } from '../lib/retail'
 import { buildProfessionalWhatsAppMessage } from '../lib/whatsappMessage'
 import { toWhatsAppUrl } from '../lib/phone'
 
@@ -190,7 +190,7 @@ export default function DigitalInvoice() {
     manualDiscountAmount: Number(invoice.manual_discount_amount || 0),
     gstAmount: Number(invoice.total_gst || invoice.gst_amount || 0),
     couponCode: invoice.coupon_code || undefined,
-    paymentMode: invoice.payment_mode || invoice.payment_method || undefined,
+    paymentMode: formatPaymentMode(invoice.payment_mode || invoice.payment_method, invoice.split_details) || undefined,
     isCredit,
     creditDueDate,
     creditPaidAt,
@@ -231,7 +231,7 @@ export default function DigitalInvoice() {
       shipping: invoice.delivery_charge,
       gstAmount: invoice.total_gst || invoice.gst_amount || 0,
       total: invoiceTotal,
-      paymentMode: invoice.payment_mode || invoice.payment_method,
+      paymentMode: formatPaymentMode(invoice.payment_mode || invoice.payment_method, invoice.split_details),
       isCredit,
       creditDueDate,
       creditPaidAt,
@@ -334,7 +334,7 @@ export default function DigitalInvoice() {
             couponCode={invoice.coupon_code}
             total={invoiceTotal}
             status={invoice.status}
-            paymentMode={invoice.payment_mode || invoice.payment_method}
+            paymentMode={formatPaymentMode(invoice.payment_mode || invoice.payment_method, invoice.split_details)}
             isCredit={isCredit}
             creditDueDate={creditDueDate}
             creditPaidAt={creditPaidAt}

@@ -2966,7 +2966,6 @@ export default function Dashboard() {
                   { v: 'all',     l: l('All Bills', 'அனைத்து') },
                   { v: 'offline', l: l('Offline', 'ஆஃப்லைன்') },
                   { v: 'online',  l: l('Online', 'ஆன்லைன்') },
-                  { v: 'manual',  l: l('Manual', 'கைமுறை') },
                 ] as const).map(({ v, l }) => (
                   <button key={v} type="button" onClick={() => setBillTypeFilter(v)}
                     className={`min-h-[44px] px-3 py-1.5 rounded-xl text-[12px] font-black transition-colors ${billTypeFilter === v ? 'bg-[#111111] text-white shadow-sm' : 'bg-[#F9FAFB] text-[#374151] hover:bg-[#E5E7EB]/40'}`}>

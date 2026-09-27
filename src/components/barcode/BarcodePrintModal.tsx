@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom'
 import { X, Printer, Copy, Check } from 'lucide-react'
 import { BarcodeLabel } from './BarcodeLabel'
 import { BRAND_EN } from '../../lib/brand'
-import { getAllLabelSizes, generateBarcodeSvgString, getStoredBarcodeSettings, saveStoredBarcodeSettings } from '../../lib/barcode'
+import { getAllLabelSizes, labelBarcodeHtml, getStoredBarcodeSettings, saveStoredBarcodeSettings } from '../../lib/barcode'
 import { ModalPortal } from '../ModalPortal'
 
 export interface BarcodePrintModalProps {
@@ -107,28 +107,20 @@ export const BarcodePrintModal: React.FC<BarcodePrintModalProps> = ({
       const isSmall = selectedPreset.heightMm <= 25
       const isLarge = selectedPreset.heightMm >= 40
 
-      // Proportional barcode sizing preventing detail overlaps
-      // Barcode bars take ~32% of height, leaving balanced space for text, header, and footer
-      const barcodeHeightPx = Math.max(16, Math.round(selectedPreset.heightMm * 0.32 * 3.7795))
-      const printableWidthPx = Math.max(30, (selectedPreset.widthMm - 4) * 3.7795)
-      const barcodeBarWidth = Math.max(0.80, Math.min(1.70, Math.round((printableWidthPx / 120) * 100) / 100))
-      const barcodeFontSize = Math.max(6, Math.min(9.5, Math.round(selectedPreset.heightMm * 0.20 * 10) / 10))
-
-      // Direct SVG generation without CDN script dependencies
-      const svgMarkup = generateBarcodeSvgString(barcodeValue, {
-        width: barcodeBarWidth,
-        height: barcodeHeightPx,
-        fontSize: barcodeFontSize,
-        font: 'Arial, sans-serif',
-        margin: 0,
-        textMargin: 1.5,
-        displayValue: true,
+      // Bars take ~30% of the label height; width is snapped to printer dots so scanners read it
+      const svgMarkup = labelBarcodeHtml(barcodeValue, {
+        labelWidthMm: selectedPreset.widthMm,
+        barHeightMm: Math.max(5, selectedPreset.heightMm * 0.3),
+        sidePaddingMm: isSmall ? 2 : 2.5,
+        fontSizePt: isSmall ? 6 : 7.5,
       })
 
-      const headerFontSize = isSmall ? '7pt' : isLarge ? '10.5pt' : '8.5pt'
-      const titleFontSize = isSmall ? '6pt' : isLarge ? '9pt' : '7.5pt'
-      const tagFontSize = isSmall ? '5.5pt' : isLarge ? '8.5pt' : '7pt'
-      const priceFontSize = isSmall ? '8pt' : isLarge ? '12pt' : '9.5pt'
+      // Narrow labels (3-across 35 mm) get smaller text so every line stays on one line
+      const isNarrow = selectedPreset.widthMm < 45
+      const headerFontSize = isNarrow ? '5.2pt' : isSmall ? '7pt' : isLarge ? '10.5pt' : '8.5pt'
+      const titleFontSize = isNarrow ? '5.5pt' : isSmall ? '6pt' : isLarge ? '9pt' : '7.5pt'
+      const tagFontSize = isNarrow ? '4.5pt' : isSmall ? '5.5pt' : isLarge ? '8.5pt' : '7pt'
+      const priceFontSize = isNarrow ? '7.5pt' : isSmall ? '8pt' : isLarge ? '12pt' : '9.5pt'
 
     // Build standalone HTML for the printed stickers with strict thermal proportions
     const parsedQty = parseInt(quantity.trim(), 10)
@@ -143,7 +135,7 @@ export const BarcodePrintModal: React.FC<BarcodePrintModalProps> = ({
           ${svgMarkup}
         </div>
         <div class="footer">
-          <span>${mrp && mrp > price ? `<span class="mrp">MRP ₹${mrp}</span>` : `<span class="retail-tag">${BRAND_EN} RETAIL</span>`}</span>
+          <span>${mrp && mrp > price ? `<span class="mrp">MRP ₹${mrp}</span>` : isNarrow ? '' : `<span class="retail-tag">${BRAND_EN} RETAIL</span>`}</span>
           <span class="price">₹${price}</span>
         </div>
       </div>
@@ -266,7 +258,7 @@ export const BarcodePrintModal: React.FC<BarcodePrintModalProps> = ({
             .brand {
               font-size: ${headerFontSize};
               font-weight: 900;
-              letter-spacing: 0.3px;
+              letter-spacing: ${isNarrow ? 0 : 0.3}px;
               text-transform: uppercase;
               color: #000;
               line-height: 1.1;
@@ -325,6 +317,22 @@ export const BarcodePrintModal: React.FC<BarcodePrintModalProps> = ({
               font-size: ${priceFontSize};
               font-weight: 900;
               color: #000;
+            }
+            /* One line each: long names are cut with … instead of wrapping and pushing the barcode */
+            .header, .brand, .prod-title, .tag, .retail-tag, .mrp {
+              white-space: nowrap;
+              overflow: hidden;
+              text-overflow: ellipsis;
+              max-width: 100%;
+            }
+            .footer > span:first-child {
+              min-width: 0;
+              overflow: hidden;
+            }
+            .price {
+              flex-shrink: 0;
+              white-space: nowrap;
+              margin-left: 1mm;
             }
           </style>
         </head>

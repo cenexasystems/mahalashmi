@@ -20,7 +20,7 @@ import { ModalPortal } from '../components/ModalPortal'
 import { createAdvanceOrder, type AdvanceOrder, type AdvancePaymentMethod } from '../services/advanceOrderService'
 import { printAdvanceReceipt } from '../lib/advanceReceipt'
 import { printThermalReceipt } from '../lib/thermalPrint'
-import {
+import { formatPaymentMode,
   buildStructuredOrderItem,
   calculateLineTotal,
   formatCurrency,
@@ -169,7 +169,11 @@ export default function Pos(props: PosProps = {}) {
   const [remarks, setRemarks] = useState('')
   const [referenceNumber, setReferenceNumber] = useState('')
   const [billingDate, setBillingDate] = useState('') // '' = use current date/time
-  const [paymentType, setPaymentType] = useState<'cash' | 'qr' | 'card' | 'credit'>('cash')
+  const [paymentType, setPaymentType] = useState<'cash' | 'qr' | 'card' | 'split' | 'credit'>('cash')
+  // Split payment: part cash + part QR or card
+  const [splitCash, setSplitCash] = useState('')
+  const [splitOther, setSplitOther] = useState('')
+  const [splitOtherMethod, setSplitOtherMethod] = useState<'qr' | 'card'>('qr')
   const [creditDueDate, setCreditDueDate] = useState('')
   const [saving, setSaving] = useState(false)
   const [shipping, setShipping] = useState<string>('0')
@@ -737,6 +741,9 @@ export default function Pos(props: PosProps = {}) {
     // Validate payment amount (only required for cash)
     if (paymentType === 'cash' && !cashReceived.trim()) { setError('Enter the amount received from customer'); return }
     if (paymentType === 'cash' && cashReceivedNum < total) { setError(`Insufficient payment. Customer still owes ${formatCurrency(total - cashReceivedNum)}`); return }
+    // Validate split payment: both parts entered and together equal the grand total
+    if (paymentType === 'split' && (splitCashNum <= 0 || splitOtherNum <= 0)) { setError('Enter both split amounts (cash and ' + (splitOtherMethod === 'qr' ? 'QR' : 'card') + ')'); return }
+    if (paymentType === 'split' && splitDiff !== 0) { setError(splitDiff > 0 ? `Split amounts are short by ${formatCurrency(splitDiff)}` : `Split amounts exceed the total by ${formatCurrency(-splitDiff)}`); return }
     // Validate credit due date
     if (paymentType === 'credit' && !creditDueDate.trim()) { setError('Select a due date for this credit sale'); return }
     // Validate online mode availability
@@ -744,6 +751,7 @@ export default function Pos(props: PosProps = {}) {
     setSaving(true); setError('')
     try {
       const paymentMode = ordermode === 'online' ? 'online' : paymentType
+      const splitPaymentDetails = paymentMode === 'split' ? { cash: splitCashNum, [splitOtherMethod]: splitOtherNum } : {}
       const created = await createOrderWithStock({
         customerName: customer.name.trim() || 'Walk-in Customer',
         phone: normalizedPhone,
@@ -780,6 +788,7 @@ export default function Pos(props: PosProps = {}) {
         totalGst,
         gstEnabled: billGstEnabled,
         paymentMethod: paymentMode,
+        splitDetails: splitPaymentDetails,
         isCredit: paymentType === 'credit',
         creditDueDate: paymentType === 'credit' ? creditDueDate : undefined,
       })
@@ -827,7 +836,7 @@ export default function Pos(props: PosProps = {}) {
         address: customer.address.trim() || 'POS Counter',
         amountReceived: cashReceivedNum,
         balanceReturned: balanceToReturn,
-        paymentMode: ordermode === 'online' ? 'Online' : paymentType === 'qr' ? 'QR' : paymentType === 'card' ? 'Card' : paymentType === 'credit' ? 'Credit' : 'Cash',
+        paymentMode: ordermode === 'online' ? 'Online' : formatPaymentMode(paymentType, splitPaymentDetails),
         paymentMethod: paymentMode,
         isCredit: paymentType === 'credit',
         creditDueDate: paymentType === 'credit' ? creditDueDate : undefined,
@@ -845,6 +854,8 @@ export default function Pos(props: PosProps = {}) {
       setItems([])
       setCustomer({ name: '', phone: '', address: '' })
       setCreditDueDate('')
+      setSplitCash('')
+      setSplitOther('')
       setCustomerBirthday('')
       setCustomerAnniversary('')
       void fetchProducts()
@@ -856,6 +867,10 @@ export default function Pos(props: PosProps = {}) {
   }
 
   const cashReceivedNum = Number(cashReceived) || 0
+  const splitCashNum = Math.max(0, Number(splitCash) || 0)
+  const splitOtherNum = Math.max(0, Number(splitOther) || 0)
+  // What is still to collect (negative = entered more than the total)
+  const splitDiff = Math.round((total - splitCashNum - splitOtherNum) * 100) / 100
   const balanceToReturn = cashReceivedNum > 0 && cashReceivedNum >= total ? cashReceivedNum - total : 0
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const isInsufficientPayment = cashReceived !== '' && cashReceivedNum > 0 && cashReceivedNum < total
@@ -1505,7 +1520,7 @@ export default function Pos(props: PosProps = {}) {
         </div>
 
         {/* RIGHT COLUMN (approx 32%) */}
-        <div className="flex-[1] flex min-h-0 flex-col gap-6 sticky top-4 h-[calc(100dvh-140px)] max-h-[calc(100dvh-140px)]">
+        <div className="flex-[1] flex min-h-0 max-lg:min-h-[420px] flex-col gap-6 lg:sticky lg:top-4 h-[calc(100dvh-140px)] max-h-[calc(100dvh-140px)]">
           <div className="flex min-h-0 h-full max-h-full flex-col overflow-hidden rounded-2xl border border-gray-200 bg-[#FBFAF6] shadow-sm">
 
             {/* Header */}
@@ -1708,8 +1723,8 @@ export default function Pos(props: PosProps = {}) {
               {paymentType !== 'credit' && (
                 <div>
                   <label className="block text-[10px] font-black text-[#374151] tracking-wider uppercase mb-1">Payment Mode</label>
-                  <div className="grid grid-cols-3 gap-1.5">
-                    {(['cash', 'qr', 'card'] as const).map(mode => (
+                  <div className="grid grid-cols-4 gap-1.5">
+                    {(['cash', 'qr', 'card', 'split'] as const).map(mode => (
                       <button
                         key={mode}
                         type="button"
@@ -1720,7 +1735,7 @@ export default function Pos(props: PosProps = {}) {
                             : 'bg-white text-[#374151] border-gray-200 hover:border-gray-300'
                         }`}
                       >
-                        {mode === 'qr' ? 'QR' : mode === 'card' ? 'Card' : 'Cash'}
+                        {mode === 'qr' ? 'QR' : mode === 'card' ? 'Card' : mode === 'split' ? 'Split' : 'Cash'}
                       </button>
                     ))}
                   </div>
@@ -1762,6 +1777,60 @@ export default function Pos(props: PosProps = {}) {
                       This sale is billed on credit. It shows as outstanding until marked paid, and you'll get an alert when the due date arrives.
                     </p>
                   </div>
+                ) : paymentType === 'split' ? (
+                <div className="border border-gray-200 rounded-xl p-2.5 bg-white space-y-2">
+                  <label className="block text-[10px] font-black text-[#374151] tracking-wider uppercase">
+                    Split Payment — Cash + {splitOtherMethod === 'qr' ? 'QR' : 'Card'} (₹)
+                  </label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <span className="block h-6 leading-6 text-[10px] font-black text-gray-500 uppercase">Cash</span>
+                      <input
+                        type="number" min="0" onWheel={(e) => (e.target as HTMLInputElement).blur()}
+                        value={splitCash}
+                        onChange={e => {
+                          const v = e.target.value
+                          setSplitCash(v)
+                          // Fill the other part with whatever is left of the total
+                          setSplitOther(v === '' ? '' : String(Math.max(0, Math.round((total - (Number(v) || 0)) * 100) / 100)))
+                        }}
+                        placeholder="0.00"
+                        className="w-full h-9 px-3 bg-[#FAFAFA] border border-gray-200 rounded-xl text-[13px] font-black text-[#111111] focus:outline-none focus:border-[var(--accent)]"
+                      />
+                    </div>
+                    <div>
+                      <div className="flex h-6 items-center gap-1">
+                        {(['qr', 'card'] as const).map(m => (
+                          <button
+                            key={m}
+                            type="button"
+                            onClick={() => setSplitOtherMethod(m)}
+                            className={`px-2 py-0.5 rounded-md text-[10px] font-black uppercase transition-colors ${
+                              splitOtherMethod === m ? 'bg-[#0A0A0A] text-[var(--accent)]' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                            }`}
+                          >
+                            {m === 'qr' ? 'QR' : 'Card'}
+                          </button>
+                        ))}
+                      </div>
+                      <input
+                        type="number" min="0" onWheel={(e) => (e.target as HTMLInputElement).blur()}
+                        value={splitOther}
+                        onChange={e => setSplitOther(e.target.value)}
+                        placeholder="0.00"
+                        className="w-full h-9 px-3 bg-[#FAFAFA] border border-gray-200 rounded-xl text-[13px] font-black text-[#111111] focus:outline-none focus:border-[var(--accent)]"
+                      />
+                    </div>
+                  </div>
+                  {(splitCash !== '' || splitOther !== '') && (
+                    <div className={`flex justify-between items-center px-3 py-1.5 rounded-lg border text-[10px] font-bold ${
+                      splitDiff === 0 ? 'bg-emerald-50 border-emerald-200 text-emerald-800' : 'bg-red-50 border-red-200 text-red-700'
+                    }`}>
+                      <span>{splitDiff === 0 ? 'Matches grand total' : splitDiff > 0 ? 'Still to collect' : 'More than grand total by'}</span>
+                      <span className="text-[12px] font-black">{splitDiff === 0 ? '✓' : formatCurrency(Math.abs(splitDiff))}</span>
+                    </div>
+                  )}
+                </div>
                 ) : (
                 <div className="border border-gray-200 rounded-xl p-2.5 bg-white">
                   <label className="block text-[10px] font-black text-[#374151] tracking-wider uppercase mb-0.5">
