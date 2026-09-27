@@ -82,8 +82,12 @@ export const isUuid = (value: unknown): value is string =>
 
 export const formatInvoiceNo = (invNo: unknown): string => {
   const raw = String(invNo || '').trim()
-  const base = raw.replace(/^INV/i, '')
+  const base = raw.replace(/^INV/i, '').replace(/[^\d]/g, '')
   if (!base) return 'INV10000001'
+
+  // If already has full timestamp (15+ digits), just use it as-is
+  if (base.length >= 15) return `INV${base}`
+
   if (/^\d{8}$/.test(base)) return `INV${base}`
 
   const matchDigits = base.match(/\d+/g)
