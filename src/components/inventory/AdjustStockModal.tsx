@@ -268,8 +268,8 @@ export const AdjustStockModal: React.FC<AdjustStockModalProps> = ({
             {mode === 'RESTOCK' && (
               <div className="space-y-2.5 bg-emerald-50/60 border border-emerald-200 p-3 sm:p-3.5 rounded-xl">
                 <div>
-                  <label className="block text-[11px] font-black uppercase tracking-wider text-emerald-900 mb-1">
-                    Quantity to Add (Restock) <span className="text-red-500">*</span>
+                  <label className="block text-[11px] font-black uppercase tracking-wider text-emerald-900 mb-1 h-6">
+                    Quantity to Add <span className="text-red-500">*</span>
                   </label>
                   <div className="flex items-center gap-2">
                     <button
@@ -374,7 +374,7 @@ export const AdjustStockModal: React.FC<AdjustStockModalProps> = ({
                 </div>
 
                 <div>
-                  <div className="flex items-center justify-between mb-1">
+                  <div className="flex items-center justify-between mb-1 h-6">
                     <label className="block text-[11px] font-black uppercase tracking-wider text-rose-900">
                       Quantity to Remove <span className="text-red-500">*</span>
                     </label>
@@ -453,8 +453,8 @@ export const AdjustStockModal: React.FC<AdjustStockModalProps> = ({
             {mode === 'CORRECTION' && (
               <div className="space-y-2.5 bg-amber-50/60 border border-[#B7E1BE] p-3 sm:p-3.5 rounded-xl">
                 <div>
-                  <label className="block text-[11px] font-black uppercase tracking-wider text-amber-950 mb-1">
-                    Actual Audited Physical Count <span className="text-red-500">*</span>
+                  <label className="block text-[11px] font-black uppercase tracking-wider text-amber-950 mb-1 h-6">
+                    Physical Count <span className="text-red-500">*</span>
                   </label>
                   <div className="flex items-center gap-2">
                     <button

@@ -881,6 +881,12 @@ export default function Dashboard() {
   }
 
 
+  const handleShareViaWhatsApp = (order: DashboardOrder) => {
+    const preview = getOrderWhatsAppPreview(order)
+    if (!preview) { alert('This order has no invoice details available.'); return }
+    window.open(toWhatsAppUrl(order.phone, preview.message), '_blank', 'noopener,noreferrer')
+  }
+
   const handlePrintReceipt = (order: DashboardOrder) => {
     const preview = getOrderWhatsAppPreview(order)
     if (!preview) { alert('This order has no invoice details available.'); return }
@@ -3027,7 +3033,7 @@ export default function Dashboard() {
                           <button onClick={() => void openOrderInvoice(o, 'view')} className="inline-flex h-10 sm:min-h-[44px] flex-1 items-center justify-center gap-1.5 rounded-xl border border-[#E5E7EB]/60 px-2 sm:px-3 text-[12px] font-black text-[#111111] transition-colors hover:bg-white" title="View Invoice">
                             <Eye size={14} /> View
                           </button>
-                          <button onClick={() => window.open(`/invoice/${o.id}`, '_blank')} className="inline-flex h-10 sm:min-h-[44px] flex-1 items-center justify-center gap-1.5 rounded-xl bg-green-500 px-2 sm:px-3 text-[12px] font-black text-white transition-colors hover:bg-green-600" title="Invoice & Share">
+                          <button onClick={() => handleShareViaWhatsApp(o)} className="inline-flex h-10 sm:min-h-[44px] flex-1 items-center justify-center gap-1.5 rounded-xl bg-green-500 px-2 sm:px-3 text-[12px] font-black text-white transition-colors hover:bg-green-600" title="Invoice & Share via WhatsApp">
                             <MessageCircle size={14} /> Share
                           </button>
                         </div>
@@ -3128,7 +3134,7 @@ export default function Dashboard() {
                               <button onClick={() => void openOrderInvoice(o, 'view')} className="rounded-lg p-1 text-[#111111] transition-colors hover:bg-[#F9FAFB]" title="View Invoice">
                                 <Eye size={13} />
                               </button>
-                              <button onClick={() => window.open(`/invoice/${o.id}`, '_blank')} className="rounded-lg p-1.5 text-green-600 transition-colors hover:bg-green-50" title="Invoice & Share">
+                              <button onClick={() => handleShareViaWhatsApp(o)} className="rounded-lg p-1.5 text-green-600 transition-colors hover:bg-green-50" title="Invoice & Share via WhatsApp">
                                 <MessageCircle size={14} />
                               </button>
                             </div>
