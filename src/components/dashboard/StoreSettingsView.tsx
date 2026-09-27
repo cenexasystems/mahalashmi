@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { Store, Phone, MapPin, Palette, Package, SlidersHorizontal, Lock, RefreshCw, Camera, Trash2, X, Check, AlertCircle, Save } from 'lucide-react'
 import { useSettingsStore, useAdminAuthStore, useProductStore } from '../../store/store'
 import { BRAND_LOGO, BRAND_EN } from '../../lib/brand'
-import { isSupabaseConfigured } from '../../lib/supabase'
+import { isSupabaseConfigured, supabase } from '../../lib/supabase'
 import { ModalPortal } from '../ModalPortal'
 
 const ACCENT_SWATCHES = [
@@ -20,6 +20,27 @@ export default function StoreSettingsView({ onAddProduct }: StoreSettingsViewPro
   const { settings, loading, saving, fetchSettings, updateSettings, uploadLogo, clearLogo, changePassword } = useSettingsStore()
   const role = useAdminAuthStore(state => state.role)
   const products = useProductStore(state => state.products)
+  const fetchProducts = useProductStore(state => state.fetchProducts)
+  const [applyingThreshold, setApplyingThreshold] = useState(false)
+  const [applyMsg, setApplyMsg] = useState<{ type: 'ok' | 'err'; text: string } | null>(null)
+
+  // Sets every product's own low-stock limit to the number in the box
+  const applyThresholdToAll = async () => {
+    const n = Math.max(0, Math.floor(Number(form.lowStockThreshold) || 0))
+    if (!window.confirm(`Set the low stock alert to ${n} for all ${products.length} products?\n\nThis replaces any limit you set for an individual product.`)) return
+    setApplyingThreshold(true)
+    setApplyMsg(null)
+    try {
+      const { error } = await supabase.from('products').update({ low_stock_alert: n, updated_at: new Date().toISOString() }).not('id', 'is', null)
+      if (error) throw error
+      await fetchProducts(true)
+      setApplyMsg({ type: 'ok', text: `All products now alert at ${n}.` })
+    } catch (err) {
+      setApplyMsg({ type: 'err', text: err instanceof Error ? err.message : 'Could not update the products' })
+    } finally {
+      setApplyingThreshold(false)
+    }
+  }
 
   const [form, setForm] = useState({
     name: '', ownerName: '', phone: '', shopContactNumber: '', email: '', address: '', instagramHandle: '',
@@ -343,6 +364,17 @@ export default function StoreSettingsView({ onAddProduct }: StoreSettingsViewPro
                   />
                 </Field>
                 <p className="text-[11px] text-[#6B7280] mt-1.5">Starting value for new products. Each product can have its own limit in Add / Edit Products, and that one is used for its alerts.</p>
+                <button
+                  type="button"
+                  onClick={() => void applyThresholdToAll()}
+                  disabled={applyingThreshold || !isSupabaseConfigured || products.length === 0}
+                  className="mt-2 rounded-lg border border-[#E5E7EB] bg-white px-3 py-1.5 text-[11px] font-bold text-[#111111] hover:bg-[#F9FAFB] disabled:opacity-50 cursor-pointer disabled:cursor-default"
+                >
+                  {applyingThreshold ? 'Applying…' : `Apply ${form.lowStockThreshold} to all products`}
+                </button>
+                {applyMsg && (
+                  <p className={`mt-1 text-[11px] font-semibold ${applyMsg.type === 'ok' ? 'text-emerald-700' : 'text-red-600'}`}>{applyMsg.text}</p>
+                )}
               </div>
               <div className="flex-1">
                 <Field label="Expiry Alert Window (days)">
