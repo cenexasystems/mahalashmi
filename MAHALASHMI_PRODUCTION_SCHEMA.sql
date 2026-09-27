@@ -746,6 +746,52 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
 
+CREATE OR REPLACE FUNCTION public.create_order_with_stock(
+  p_customer_name TEXT, p_phone TEXT, p_address TEXT, p_items JSONB,
+  p_shipping NUMERIC, p_status TEXT, p_order_mode TEXT, p_order_type TEXT,
+  p_delivery_charge NUMERIC, p_discount_amount NUMERIC,
+  p_manual_discount_amount NUMERIC, p_manual_discount_type TEXT,
+  p_manual_discount_value NUMERIC, p_coupon_code TEXT, p_coupon_percentage NUMERIC,
+  p_total_gst NUMERIC DEFAULT 0, p_gst_enabled BOOLEAN DEFAULT FALSE,
+  p_payment_method TEXT DEFAULT 'cash', p_split_details JSONB DEFAULT '{}',
+  p_credit_due_date TEXT DEFAULT NULL, p_is_credit BOOLEAN DEFAULT FALSE
+)
+RETURNS JSON AS $$
+DECLARE
+  v_order_id UUID;
+  v_invoice_no TEXT;
+  v_order_created_at TIMESTAMP;
+BEGIN
+  v_order_id := gen_random_uuid();
+  v_order_created_at := NOW();
+  v_invoice_no := 'INV' || LPAD(CAST(EXTRACT(EPOCH FROM v_order_created_at) * 1000 AS TEXT), 15, '0');
+
+  INSERT INTO public.orders (
+    id, invoice_no, customer_name, phone, address, items, shipping,
+    status, order_mode, order_type, delivery_charge, discount_amount,
+    manual_discount_amount, manual_discount_type, manual_discount_value,
+    coupon_code, coupon_percentage, total_gst, gst_enabled, payment_method,
+    split_details, is_credit, credit_due_date, created_at, updated_at
+  ) VALUES (
+    v_order_id, v_invoice_no, p_customer_name, p_phone, p_address, p_items,
+    COALESCE(p_shipping, 0), COALESCE(p_status, 'pending'), COALESCE(p_order_mode, 'online'),
+    COALESCE(p_order_type, 'pos_sale'), COALESCE(p_delivery_charge, 0), COALESCE(p_discount_amount, 0),
+    COALESCE(p_manual_discount_amount, 0), COALESCE(p_manual_discount_type, 'flat'),
+    COALESCE(p_manual_discount_value, 0), p_coupon_code, COALESCE(p_coupon_percentage, 0),
+    COALESCE(p_total_gst, 0), COALESCE(p_gst_enabled, FALSE), COALESCE(p_payment_method, 'cash'),
+    COALESCE(p_split_details, '{}'), COALESCE(p_is_credit, FALSE),
+    CASE WHEN p_credit_due_date IS NOT NULL THEN p_credit_due_date::DATE ELSE NULL END,
+    v_order_created_at, v_order_created_at
+  );
+
+  RETURN json_build_object(
+    'order_id', v_order_id::TEXT,
+    'invoice_no', v_invoice_no,
+    'created_at', v_order_created_at
+  );
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
+
 CREATE OR REPLACE FUNCTION public.get_public_invoice_by_number(p_invoice_no TEXT)
 RETURNS TABLE (
   id UUID, invoice_no TEXT, customer_name TEXT, phone TEXT, address TEXT,
