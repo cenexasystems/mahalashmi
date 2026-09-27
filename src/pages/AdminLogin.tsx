@@ -82,7 +82,7 @@ export default function AdminLogin() {
             <p className="text-xs font-bold text-[#111111]">{l('Enter your portal credentials', 'உங்கள் பயனர் விவரங்களை உள்ளிடவும்')}</p>
 
             <div>
-              <label className="mb-1 flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wide text-[#6B7280]">
+              <label className="mb-1.5 flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide text-[#6B7280]">
                 <ShieldCheck size={13} />
                 Portal ID
                 <span className="font-black text-red-500">*</span>
@@ -91,7 +91,7 @@ export default function AdminLogin() {
                 type="text"
                 autoComplete="username"
                 placeholder="Enter portal ID"
-                className="w-full rounded-xl border-2 border-[#B7E1BE] bg-[#FBFAF6] px-3.5 py-2.5 sm:py-3 text-xs sm:text-sm font-semibold outline-none transition-colors placeholder:text-[#AAA69C] focus:border-[#0A0A0A] focus:bg-white text-[#111111]"
+                className="w-full rounded-xl border-2 border-[#B7E1BE] bg-[#FBFAF6] px-3.5 py-3.5 sm:py-3.5 text-xs sm:text-sm font-semibold outline-none transition-colors placeholder:text-[#AAA69C] focus:border-[#0A0A0A] focus:bg-white text-[#111111] min-h-[44px]"
                 value={portalId}
                 onChange={(e) => { setPortalId(e.target.value); setError('') }}
                 disabled={loading}
@@ -100,7 +100,7 @@ export default function AdminLogin() {
             </div>
 
             <div>
-              <label className="flex items-center gap-1.5 text-[10px] font-bold text-[#6B7280] uppercase tracking-wide mb-1">
+              <label className="flex items-center gap-1.5 text-[11px] font-bold text-[#6B7280] uppercase tracking-wide mb-1.5">
                 <Lock size={13} />
                 {l('Portal Password', 'நுழைவு கடவுச்சொல்')}
                 <span className="text-red-500 font-black">*</span>
@@ -110,7 +110,7 @@ export default function AdminLogin() {
                   type={showPassword ? 'text' : 'password'}
                   autoComplete="current-password"
                   placeholder="Enter portal password"
-                  className="w-full rounded-xl border-2 border-[#B7E1BE] bg-[#FBFAF6] px-3.5 py-2.5 sm:py-3 pr-11 text-xs sm:text-sm font-semibold outline-none transition-colors placeholder:text-[#AAA69C] focus:border-[#0A0A0A] focus:bg-white text-[#111111]"
+                  className="w-full rounded-xl border-2 border-[#B7E1BE] bg-[#FBFAF6] px-3.5 py-3.5 sm:py-3.5 pr-11 text-xs sm:text-sm font-semibold outline-none transition-colors placeholder:text-[#AAA69C] focus:border-[#0A0A0A] focus:bg-white text-[#111111] min-h-[44px]"
                   value={password}
                   onChange={(e) => { setPassword(e.target.value); setError('') }}
                   disabled={loading}
@@ -130,7 +130,7 @@ export default function AdminLogin() {
             <button
               type="submit"
               disabled={loading}
-              className="group flex w-full items-center justify-center gap-2 rounded-xl bg-[#0A0A0A] border border-[var(--accent)] py-3 font-black text-xs sm:text-sm text-[var(--accent)] shadow-lg shadow-black/20 transition-all hover:bg-[#1A1A1A] hover:scale-[1.01] active:scale-[0.99] disabled:opacity-60 cursor-pointer"
+              className="group flex w-full items-center justify-center gap-2 rounded-xl bg-[#0A0A0A] border border-[var(--accent)] py-3.5 font-black text-xs sm:text-sm text-[var(--accent)] shadow-lg shadow-black/20 transition-all hover:bg-[#1A1A1A] hover:scale-[1.01] active:scale-[0.99] disabled:opacity-60 cursor-pointer min-h-[48px]"
             >
               {loading ? (
                 <>

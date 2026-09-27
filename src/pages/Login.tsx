@@ -139,7 +139,7 @@ export default function Login() {
             {/* Mobile Number */}
             <FieldGroup label={l('Mobile Number', 'மொபைல் எண்')} icon={<PhoneIcon size={14} />} required error={fieldErrs.phone} hint={l('10-digit Indian mobile', '10 இலக்க மொபைல்')}>
               <div className="flex gap-2">
-                <span className="flex items-center px-3 py-3 bg-[#F9FAFB] border-2 border-sand rounded-xl text-[13px] font-bold text-textMuted shrink-0 select-none">
+                <span className="flex items-center px-3 py-3.5 bg-[#F9FAFB] border-2 border-sand rounded-xl text-[13px] font-bold text-textMuted shrink-0 select-none">
                   🇮🇳 +60
                 </span>
                 <input
@@ -164,7 +164,7 @@ export default function Login() {
             </FieldGroup>
 
             <button type="submit" disabled={loading}
-              className="w-full bg-sageDark hover:bg-sageDeep text-white font-bold py-3.5 rounded-xl transition-colors disabled:opacity-60 flex items-center justify-center gap-2">
+              className="w-full bg-sageDark hover:bg-sageDeep text-white font-bold py-4 rounded-xl transition-colors disabled:opacity-60 flex items-center justify-center gap-2 min-h-[48px]">
               {loading
                 ? <><Spinner /> {l('Sending link…', 'அனுப்புகிறது...')}</>
                 : <><Mail size={15} /> {l('Send Magic Link', 'இணைப்பு அனுப்பு')}</>
@@ -188,7 +188,7 @@ export default function Login() {
               type="button"
               onClick={handleGoogle}
               disabled={googleLoading}
-              className="w-full flex items-center justify-center gap-3 bg-white border-2 border-[#E5E7EB] hover:border-sageDark text-textMain font-bold py-3.5 rounded-xl transition-all disabled:opacity-60 shadow-sm hover:shadow-md active:scale-[0.98]"
+              className="w-full flex items-center justify-center gap-3 bg-white border-2 border-[#E5E7EB] hover:border-sageDark text-textMain font-bold py-4 rounded-xl transition-all disabled:opacity-60 shadow-sm hover:shadow-md active:scale-[0.98] min-h-[48px]"
             >
               {googleLoading ? <Spinner /> : <GoogleIcon size={20} />}
               {googleLoading ? l('Redirecting to Google…','Google க்கு செல்கிறது...') : l('Continue with Google','Google மூலம் தொடர')}
@@ -241,7 +241,7 @@ export default function Login() {
 /* ── Module-level helpers ─────────────────────────────────────────── */
 
 const inputCls = (hasError: boolean) =>
-  `w-full px-4 py-3 rounded-xl border-2 outline-none text-[13px] transition-colors ${
+  `w-full px-4 py-3.5 rounded-xl border-2 outline-none text-[13px] transition-colors ${
     hasError
       ? 'border-red-400 focus:border-red-500 bg-red-50/30'
       : 'border-sand focus:border-sageDark'
@@ -259,11 +259,11 @@ function FieldGroup({
 }) {
   return (
     <div>
-      <label className="flex items-center gap-1.5 text-[11px] font-bold text-textMuted uppercase tracking-wide mb-1.5">
+      <label className="flex items-center gap-1.5 text-[12px] font-bold text-textMuted uppercase tracking-wide mb-1.5">
         {icon}
         {label}
         {required && <span className="text-red-500 font-black">*</span>}
-        {hint && <span className="ml-auto font-normal normal-case text-[10px] text-gray-400">{hint}</span>}
+        {hint && <span className="ml-auto font-normal normal-case text-[11px] text-gray-400">{hint}</span>}
       </label>
       {children}
       {error && (
