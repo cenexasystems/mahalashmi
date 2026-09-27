@@ -36,7 +36,8 @@ export default function DigitalInvoice() {
       try {
         const identifier = decodeURIComponent(id || '').trim()
         const formattedIdentifier = formatInvoiceNo(identifier)
-        const strippedIdentifier = identifier.replace(/^INV/i, '')
+        const strippedIdentifier = identifier.replace(/^INV/i, '').trim()
+        const cleanIdentifier = identifier.replace(/^INV0*/i, '').trim()
 
         const tryRpc = async (invNo: string) => supabase.rpc('get_public_invoice_by_number', { p_invoice_no: invNo })
 
@@ -44,6 +45,11 @@ export default function DigitalInvoice() {
         if (!rpcResult.data || (Array.isArray(rpcResult.data) && rpcResult.data.length === 0)) {
           if (strippedIdentifier && strippedIdentifier !== identifier) {
              rpcResult = await tryRpc(strippedIdentifier)
+          }
+        }
+        if (!rpcResult.data || (Array.isArray(rpcResult.data) && rpcResult.data.length === 0)) {
+          if (cleanIdentifier && cleanIdentifier !== identifier && cleanIdentifier !== strippedIdentifier) {
+             rpcResult = await tryRpc(cleanIdentifier)
           }
         }
         if (!rpcResult.data || (Array.isArray(rpcResult.data) && rpcResult.data.length === 0)) {
@@ -59,15 +65,18 @@ export default function DigitalInvoice() {
         // been applied to the target project.
         if (!row || rpcError) {
           const tryTable = async (invNo: string) => supabase.from('orders').select('*').eq('invoice_no', invNo).maybeSingle()
-          
+
           let tableResult = await tryTable(identifier)
           if (!tableResult.data && strippedIdentifier && strippedIdentifier !== identifier) {
             tableResult = await tryTable(strippedIdentifier)
           }
+          if (!tableResult.data && cleanIdentifier && cleanIdentifier !== identifier && cleanIdentifier !== strippedIdentifier) {
+            tableResult = await tryTable(cleanIdentifier)
+          }
           if (!tableResult.data && formattedIdentifier && formattedIdentifier !== identifier && formattedIdentifier !== strippedIdentifier) {
             tableResult = await tryTable(formattedIdentifier)
           }
-          
+
           row = tableResult.data
 
           if (!row && isUuid(identifier)) {

@@ -60,15 +60,17 @@ export type AdvanceDepositWhatsAppInput = {
   paymentMethod?: string
 }
 
-export const publicInvoiceUrl = (invoiceNumber: string) => {
-  const formatted = formatInvoiceNo(invoiceNumber)
+export const publicInvoiceUrl = (invoiceNumberOrId: string) => {
+  // Support both invoice numbers and order IDs
+  const isInvoiceNumber = invoiceNumberOrId.match(/^INV\d+|^\d+/i)
+  const identifier = isInvoiceNumber ? formatInvoiceNo(invoiceNumberOrId) : invoiceNumberOrId
   const envUrl = (import.meta.env.VITE_SITE_URL as string | undefined)?.replace(/\/$/, '')
   const origin =
     envUrl ||
     (typeof window !== 'undefined' && window.location?.origin && !window.location.origin.includes('localhost')
       ? window.location.origin
       : BRAND_PRODUCTION_DOMAIN)
-  return `${origin}/invoice/${encodeURIComponent(formatted)}`
+  return `${origin}/invoice/${encodeURIComponent(identifier)}`
 }
 
 export const buildProfessionalWhatsAppMessage = (input: BuildWhatsAppMessageInput) => {
