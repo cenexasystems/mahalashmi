@@ -12,6 +12,7 @@ import {
   Layers,
   Ruler,
   SlidersHorizontal,
+  Dices,
 } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import { useProductStore, type Product } from '../../store/store'
@@ -23,6 +24,10 @@ import { normalizeBarcode } from '../../lib/barcode'
 import { roundTo } from '../../lib/retail'
 import { UNIT_OPTIONS, UNIT_GROUPS, findUnitOption } from '../../lib/units'
 import { DateInputDDMMYYYY } from '../DateInputDDMMYYYY'
+
+// Makes the shared date input match the other fields in this form (height, padding,
+// background, text size); `!` is needed to beat the component's own defaults.
+const DATE_INPUT_CLASS = '!h-10 !py-0 !pl-3.5 !pr-10 !text-xs !bg-[#FAFAFA]'
 
 export interface VariantInputRow {
   id: string
@@ -1277,7 +1282,7 @@ export const AddEditProductView: React.FC<{ onStockUpdated?: () => void }> = ({ 
 
                   <div className="space-y-4">
                     {/* Category, Barcode, Storage Location, Low Stock Alert, Manufacture Date, and Expiry Date */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-4 gap-y-3 items-start">
                       <div>
                         <label className="block text-[11px] font-bold text-gray-700 mb-1.5 h-4 flex items-center">
                           Category
@@ -1347,33 +1352,42 @@ export const AddEditProductView: React.FC<{ onStockUpdated?: () => void }> = ({ 
                         />
                       </div>
 
-                      <div className="flex gap-2 items-end">
-                        <div className="flex-1">
-                          <DateInputDDMMYYYY
-                            label="Mfg Date"
-                            value={mfgDate}
-                            onChange={setMfgDate}
-                            placeholder="DD/MM/YYYY"
-                            className="h-10 px-3.5 text-xs"
-                          />
+                      <div>
+                        <label className="block text-[11px] font-bold text-gray-700 mb-1.5 h-4 flex items-center">
+                          Mfg Date
+                        </label>
+                        <div className="flex gap-2 items-center">
+                          <div className="flex-1 min-w-0">
+                            <DateInputDDMMYYYY
+                              value={mfgDate}
+                              onChange={setMfgDate}
+                              placeholder="DD/MM/YYYY"
+                              className={DATE_INPUT_CLASS}
+                            />
+                          </div>
+                          <button
+                            type="button"
+                            onClick={generateRandomDates}
+                            title="Generate random manufacture and expiry dates"
+                            aria-label="Generate random manufacture and expiry dates"
+                            className="h-10 w-10 shrink-0 flex items-center justify-center rounded-xl bg-amber-50 hover:bg-amber-100 border border-amber-300 text-amber-700 transition-colors"
+                          >
+                            <Dices size={16} />
+                          </button>
                         </div>
-                        <button
-                          type="button"
-                          onClick={generateRandomDates}
-                          title="Generate random manufacture and expiry dates"
-                          className="h-10 px-3 rounded-lg bg-amber-100 hover:bg-amber-200 border border-amber-300 text-amber-700 text-xs font-bold transition-colors shrink-0"
-                        >
-                          🎲
-                        </button>
                       </div>
 
-                      <DateInputDDMMYYYY
-                        label="Expiry Date"
-                        value={expiryDate}
-                        onChange={setExpiryDate}
-                        placeholder="DD/MM/YYYY"
-                        className="h-10 px-3.5 text-xs"
-                      />
+                      <div>
+                        <label className="block text-[11px] font-bold text-gray-700 mb-1.5 h-4 flex items-center">
+                          Expiry Date
+                        </label>
+                        <DateInputDDMMYYYY
+                          value={expiryDate}
+                          onChange={setExpiryDate}
+                          placeholder="DD/MM/YYYY"
+                          className={DATE_INPUT_CLASS}
+                        />
+                      </div>
                     </div>
 
                     {/* Description */}
