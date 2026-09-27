@@ -696,6 +696,13 @@ END;
 $$;
 
 -- ============================================================================
+-- INVOICE COUNTER SEQUENCE
+-- ============================================================================
+
+CREATE SEQUENCE IF NOT EXISTS public.invoice_counter START WITH 1 INCREMENT BY 1;
+GRANT USAGE, SELECT ON SEQUENCE public.invoice_counter TO authenticated, anon, public;
+
+-- ============================================================================
 -- RPC FUNCTIONS - ORDER & INVENTORY MANAGEMENT
 -- ============================================================================
 
@@ -718,7 +725,7 @@ DECLARE
 BEGIN
   v_order_id := gen_random_uuid();
   v_order_created_at := NOW();
-  v_invoice_no := 'INV' || LPAD(CAST(EXTRACT(EPOCH FROM v_order_created_at) * 1000 AS TEXT), 15, '0');
+  v_invoice_no := LPAD(CAST(nextval('public.invoice_counter') AS TEXT), 16, '0');
 
   INSERT INTO public.orders (
     id, invoice_no, customer_name, phone, address, items, shipping,
@@ -764,7 +771,7 @@ DECLARE
 BEGIN
   v_order_id := gen_random_uuid();
   v_order_created_at := NOW();
-  v_invoice_no := 'INV' || LPAD(CAST(EXTRACT(EPOCH FROM v_order_created_at) * 1000 AS TEXT), 15, '0');
+  v_invoice_no := LPAD(CAST(nextval('public.invoice_counter') AS TEXT), 16, '0');
 
   INSERT INTO public.orders (
     id, invoice_no, customer_name, phone, address, items, shipping,
