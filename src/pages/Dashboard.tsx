@@ -378,14 +378,18 @@ export default function Dashboard() {
     // WhatsApp = online_request type (all statuses, no revenue)
     const waOrders = dated.filter(o => normalizeOrderType(o.order_type) === 'online_request')
 
-    // Billable = completed and NOT online_request
-    const billableCompleted = completedOrders.filter(o => normalizeOrderType(o.order_type) !== 'online_request')
+    // Billable = completed and NOT online_request and NOT outstanding credit
+    const billableCompleted = completedOrders.filter(o =>
+      normalizeOrderType(o.order_type) !== 'online_request' &&
+      (!o.is_credit || o.credit_status === 'paid')
+    )
     // The trend charts are fixed calendar views. The period selector filters
     // KPIs/tables, but must not change the year/week bars underneath them.
     const allBillableCompleted = orders
       .filter(o => normalizeStatus(o.status) !== 'cancelled')
       .filter(o => isCompletedStatus(o.status))
       .filter(o => normalizeOrderType(o.order_type) !== 'online_request')
+      .filter(o => !o.is_credit || o.credit_status === 'paid')
     // Channel is determined by order_mode. Older orders can use a different
     // order_type, so requiring exactly `pos_sale` hides valid online bills.
     const offlinePOS  = billableCompleted.filter(o => normalizeOrderMode(o.order_mode) === 'offline' && normalizeOrderType(o.order_type) !== 'manual_sale')
