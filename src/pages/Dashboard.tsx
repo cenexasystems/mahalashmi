@@ -41,9 +41,10 @@ import { formatCurrency, normalizeOrderMode, toNumber } from '../lib/retail'
 import { normalizeStructuredOrderItem, formatInvoiceNo } from '../lib/retail'
 import { Invoice } from '../components/Invoice'
 import { printThermalReceipt } from '../lib/thermalPrint'
-import { buildProfessionalWhatsAppMessage } from '../lib/whatsappMessage'
+import { buildProfessionalWhatsAppMessage, buildCreditReminderWhatsAppMessage } from '../lib/whatsappMessage'
 import { invoicePdfFile } from '../lib/invoicePdf'
-// toWhatsAppUrl removed - using direct link building in handlers
+import { toWhatsAppUrl } from '../lib/phone'
+import { toDaysOverdue } from '../services/creditService'
 import Pos from './Pos'
 import AdvanceOrders from './AdvanceOrders'
 import ExpiryAlerts from './ExpiryAlerts'
@@ -3595,7 +3596,16 @@ export default function Dashboard() {
             onView={(o) => setInvoicePreviewOrder(o)}
             onPrint={(o) => handlePrintReceipt(o)}
             onDownload={(o) => void openOrderInvoice(o, 'download')}
-            onShare={(o) => window.open(`/invoice/${o.id}`, '_blank')}
+            onShare={(o) => {
+              const message = buildCreditReminderWhatsAppMessage({
+                customerName: o.customer_name,
+                invoiceNumber: o.invoice_no,
+                amount: Number(o.total || 0),
+                dueDate: o.credit_due_date || null,
+                daysOverdue: toDaysOverdue(o.credit_due_date || null),
+              })
+              window.open(toWhatsAppUrl(o.phone, message), '_blank', 'noopener,noreferrer')
+            }}
             onDelete={(o) => void deleteOrder(o.id, o.invoice_no)}
           />
         )}
