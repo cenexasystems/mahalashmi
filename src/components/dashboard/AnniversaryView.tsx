@@ -18,6 +18,8 @@ export default function AnniversaryView() {
   const [offers, setOffers] = useState(['20% OFF', 'Buy 1 Get 1', '₹500 OFF', 'Free Gift'])
   const [editingOffer, setEditingOffer] = useState<string | null>(null)
   const [editingValue, setEditingValue] = useState('')
+  const [editingMessage, setEditingMessage] = useState(false)
+  const [messageToEdit, setMessageToEdit] = useState('')
 
   React.useEffect(() => {
     const loadCustomers = async () => {
@@ -110,6 +112,47 @@ export default function AnniversaryView() {
     if (selectedOffer === offer && offers.length > 1) {
       setSelectedOffer(offers[0])
     }
+  }
+
+  const handleAddOffer = () => {
+    const newOffer = prompt('Enter new offer (e.g., "50% OFF", "Free Shipping", etc.)')
+    if (newOffer && newOffer.trim()) {
+      const trimmed = newOffer.trim()
+      if (!offers.includes(trimmed)) {
+        setOffers([...offers, trimmed])
+      }
+    }
+  }
+
+  const handleEditMessage = () => {
+    setEditingMessage(true)
+    setMessageToEdit(previewMessage)
+  }
+
+  const handleSaveMessage = () => {
+    setCustomMessage(messageToEdit)
+    setEditingMessage(false)
+    setMessageToEdit('')
+  }
+
+  const exportToCSV = () => {
+    const headers = ['Customer Name', 'Phone', 'Anniversary Date', 'Amount Spent']
+    const rows = filtered.map(c => [
+      c.name,
+      c.phone,
+      new Date(`${c.anniversary}T00:00:00`).toLocaleDateString('en-IN'),
+      '₹0'
+    ])
+    const csv = [headers, ...rows].map(row => row.map(cell => `"${cell}"`).join(',')).join('\n')
+    const blob = new Blob([csv], { type: 'text/csv' })
+    const url = window.URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `anniversaries-${new Date().toISOString().split('T')[0]}.csv`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    window.URL.revokeObjectURL(url)
   }
 
   return (
@@ -236,29 +279,37 @@ export default function AnniversaryView() {
                     </div>
                   </div>
                 ) : (
-                  <div className="flex gap-2">
-                    <select
-                      value={selectedOffer}
-                      onChange={(e) => setSelectedOffer(e.target.value)}
-                      className="flex-1 rounded-lg border border-[#E5E7EB] bg-white px-3 py-2 text-sm font-bold text-[#111111] focus:outline-none focus:ring-2 focus:ring-rose-500"
-                    >
-                      {offers.map((offer) => (
-                        <option key={offer} value={offer}>{offer}</option>
-                      ))}
-                    </select>
+                  <div className="space-y-2">
+                    <div className="flex gap-2">
+                      <select
+                        value={selectedOffer}
+                        onChange={(e) => setSelectedOffer(e.target.value)}
+                        className="flex-1 rounded-lg border border-[#E5E7EB] bg-white px-3 py-2 text-sm font-bold text-[#111111] focus:outline-none focus:ring-2 focus:ring-rose-500"
+                      >
+                        {offers.map((offer) => (
+                          <option key={offer} value={offer}>{offer}</option>
+                        ))}
+                      </select>
+                      <button
+                        onClick={() => handleEditOffer(selectedOffer)}
+                        className="px-3 py-2 rounded-lg border border-[#E5E7EB] bg-white font-bold text-sm hover:bg-gray-50 transition-colors"
+                        title="Edit selected offer"
+                      >
+                        ✏️
+                      </button>
+                      <button
+                        onClick={() => handleDeleteOffer(selectedOffer)}
+                        className="px-3 py-2 rounded-lg border border-red-200 bg-red-50 hover:bg-red-100 font-bold text-sm text-red-700 transition-colors"
+                        title="Delete selected offer"
+                      >
+                        🗑️
+                      </button>
+                    </div>
                     <button
-                      onClick={() => handleEditOffer(selectedOffer)}
-                      className="px-3 py-2 rounded-lg border border-[#E5E7EB] bg-white font-bold text-sm hover:bg-gray-50 transition-colors"
-                      title="Edit selected offer"
+                      onClick={handleAddOffer}
+                      className="w-full px-3 py-2 rounded-lg border border-dashed border-rose-300 bg-rose-50 text-rose-700 font-bold text-xs hover:bg-rose-100 transition-colors"
                     >
-                      ✏️
-                    </button>
-                    <button
-                      onClick={() => handleDeleteOffer(selectedOffer)}
-                      className="px-3 py-2 rounded-lg border border-red-200 bg-red-50 hover:bg-red-100 font-bold text-sm text-red-700 transition-colors"
-                      title="Delete selected offer"
-                    >
-                      🗑️
+                      + Add Offer
                     </button>
                   </div>
                 )}
@@ -276,10 +327,46 @@ export default function AnniversaryView() {
               </div>
 
               <div className="rounded-lg border border-green-200 bg-green-50 p-4">
-                <p className="text-xs font-bold text-[#6B7280] mb-2 text-center">MESSAGE PREVIEW</p>
-                <div className="text-sm text-[#111111] whitespace-pre-wrap leading-relaxed">
-                  {previewMessage}
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-xs font-bold text-[#6B7280]">MESSAGE PREVIEW</p>
+                  {!editingMessage && (
+                    <button
+                      onClick={handleEditMessage}
+                      className="px-2 py-1 rounded text-xs font-bold text-green-700 hover:bg-green-100 transition-colors"
+                      title="Edit message"
+                    >
+                      ✏️ Edit
+                    </button>
+                  )}
                 </div>
+                {editingMessage ? (
+                  <div className="space-y-2">
+                    <textarea
+                      value={messageToEdit}
+                      onChange={(e) => setMessageToEdit(e.target.value)}
+                      className="w-full rounded-lg border border-green-500 bg-white px-3 py-2 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-green-500"
+                      rows={6}
+                    />
+                    <div className="flex gap-2">
+                      <button
+                        onClick={handleSaveMessage}
+                        className="flex-1 px-3 py-2 rounded-lg bg-green-600 text-white font-bold text-sm hover:bg-green-700"
+                      >
+                        Save Message
+                      </button>
+                      <button
+                        onClick={() => setEditingMessage(false)}
+                        className="flex-1 px-3 py-2 rounded-lg border border-[#E5E7EB] bg-white text-[#111111] font-bold text-sm hover:bg-gray-50"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-sm text-[#111111] whitespace-pre-wrap leading-relaxed">
+                    {previewMessage}
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -290,7 +377,17 @@ export default function AnniversaryView() {
       {currentPage === 'customers' && (
         <div className="space-y-4">
           <div className="rounded-2xl border border-[#E5E7EB] bg-white p-4">
-            <h3 className="mb-3 font-bold text-[#273126] text-sm">Filter by upcoming anniversary</h3>
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="font-bold text-[#273126] text-sm">Filter by upcoming anniversary</h3>
+              {filtered.length > 0 && (
+                <button
+                  onClick={exportToCSV}
+                  className="px-3 py-1.5 rounded-lg bg-emerald-100 text-emerald-700 hover:bg-emerald-200 font-bold text-xs transition-colors"
+                >
+                  📥 Export CSV
+                </button>
+              )}
+            </div>
             <div className="grid gap-3 sm:grid-cols-2">
               <div>
                 <label className="block text-xs font-bold text-[#6B7280] mb-1">FROM</label>
