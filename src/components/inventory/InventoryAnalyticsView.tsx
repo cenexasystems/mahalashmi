@@ -17,6 +17,7 @@ import {
 } from '../../services/inventoryService'
 import { BRAND_MONOGRAM } from '../../lib/brand'
 import { downloadCsv, type XlsxColumn } from '../../lib/xlsxExport'
+import { getPresetDates } from '../../lib/dateRanges'
 
 export const InventoryAnalyticsView: React.FC = () => {
   const [range, setRange] = useState<'all' | 'today' | 'week' | 'month'>('all')
@@ -34,20 +35,10 @@ export const InventoryAnalyticsView: React.FC = () => {
   const [search, setSearch] = useState('')
 
   const computeDateRange = useCallback(() => {
-    const now = new Date()
-    if (range === 'today') {
-      const start = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString()
-      return { start, end: undefined }
-    }
-    if (range === 'week') {
-      const start = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString()
-      return { start, end: undefined }
-    }
-    if (range === 'month') {
-      const start = new Date(now.getFullYear(), now.getMonth(), 1).toISOString()
-      return { start, end: undefined }
-    }
-    return { start: undefined, end: undefined }
+    if (range === 'all') return { start: undefined, end: undefined }
+    const { from, to } = getPresetDates(range)
+    const endOfLastDay = new Date(to.getFullYear(), to.getMonth(), to.getDate(), 23, 59, 59, 999)
+    return { start: from.toISOString(), end: endOfLastDay.toISOString() }
   }, [range])
 
   const loadAnalytics = useCallback(async () => {

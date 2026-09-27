@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase'
+import { toLocalDateStr } from '../lib/dateRanges'
 
 export interface OutstandingCreditOrder {
   id: string
@@ -49,7 +50,7 @@ export const creditService = {
    * or passed, for the sidebar badge.
    */
   async fetchOverdueCount(): Promise<number> {
-    const today = new Date().toISOString().slice(0, 10)
+    const today = toLocalDateStr(new Date())
     const { count, error } = await supabase
       .from('orders')
       .select('id', { count: 'exact', head: true })

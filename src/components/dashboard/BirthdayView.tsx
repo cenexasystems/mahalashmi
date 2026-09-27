@@ -79,7 +79,8 @@ export default function BirthdayView() {
   }
 
   const daysWithBirthdays = getDaysWithBirthdays()
-  const firstDay = new Date(currentYear, currentMonth, 1).getDay()
+  // Weeks start on Monday (Sunday is the last column)
+  const firstDay = (new Date(currentYear, currentMonth, 1).getDay() + 6) % 7
   const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate()
   const days: (number | null)[] = []
 
@@ -165,7 +166,7 @@ export default function BirthdayView() {
               </div>
 
               <div className="mb-2 grid grid-cols-7 gap-0.5 text-center text-[9px] font-bold text-[#6B7280]">
-                {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((day) => <div key={day}>{day}</div>)}
+                {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((day, i) => <div key={i}>{day}</div>)}
               </div>
               <div className="grid grid-cols-7 gap-0.5">
                 {days.map((day, idx) => (

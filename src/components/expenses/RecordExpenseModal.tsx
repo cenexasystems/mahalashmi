@@ -3,6 +3,7 @@ import { X, Calendar, Tag, AlertCircle } from 'lucide-react'
 import { expenseService, type ExpenseCategory, type ExpenseRecord } from '../../services/expenseService'
 import { getErrorMessage } from '../../lib/errorMessage'
 import { ModalPortal } from '../ModalPortal'
+import { toLocalDateStr } from '../../lib/dateRanges'
 
 interface RecordExpenseModalProps {
   isOpen: boolean
@@ -20,7 +21,7 @@ export const RecordExpenseModal: React.FC<RecordExpenseModalProps> = ({
   expenseToEdit,
 }) => {
   const isEditing = Boolean(expenseToEdit)
-  const [expenseDate, setExpenseDate] = useState(() => expenseToEdit?.expense_date || new Date().toISOString().slice(0, 10))
+  const [expenseDate, setExpenseDate] = useState(() => expenseToEdit?.expense_date || toLocalDateStr(new Date()))
   const [categoryId, setCategoryId] = useState<number | string>(() => expenseToEdit?.category_id ?? categories[0]?.id ?? '')
   const [amount, setAmount] = useState(() => expenseToEdit ? String(expenseToEdit.amount) : '')
   const [description, setDescription] = useState(() => expenseToEdit?.description || '')
@@ -29,7 +30,7 @@ export const RecordExpenseModal: React.FC<RecordExpenseModalProps> = ({
 
   useEffect(() => {
     if (!isOpen) return
-    setExpenseDate(expenseToEdit?.expense_date || new Date().toISOString().slice(0, 10))
+    setExpenseDate(expenseToEdit?.expense_date || toLocalDateStr(new Date()))
     setCategoryId(expenseToEdit?.category_id ?? categories[0]?.id ?? '')
     setAmount(expenseToEdit ? String(expenseToEdit.amount) : '')
     setDescription(expenseToEdit?.description || '')

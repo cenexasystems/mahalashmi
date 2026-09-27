@@ -46,6 +46,7 @@ const RMIcon = ({ size = 16, className = '' }: { size?: number; className?: stri
 )
 import { useAuthStore, useProductStore, type Product } from '../store/store'
 import { formatCurrency, normalizeOrderMode, toNumber } from '../lib/retail'
+import { getPresetRange, startOfWeekMonday, toLocalDateStr } from '../lib/dateRanges'
 
 type BillingOrder = {
   id: string
@@ -129,14 +130,6 @@ const normalizePaymentMethod = (value: unknown) => String(value || '').trim().to
 const isCompletedStatus = (value: unknown) => {
   const status = normalizeStatus(value)
   return status === 'completed' || status === 'paid'
-}
-const startOfWeekMonday = (input: Date) => {
-  const date = new Date(input)
-  const day = date.getDay()
-  const offset = day === 0 ? -6 : 1 - day
-  date.setDate(date.getDate() + offset)
-  date.setHours(0, 0, 0, 0)
-  return date
 }
 
 const parseOrderItems = (items: unknown): Record<string, unknown>[] => {
@@ -264,23 +257,9 @@ export default function BillingAnalytics() {
     }
     if (preset === 'custom') return
 
-    const today = new Date()
-    const todayStr = today.toISOString().slice(0, 10)
-    if (preset === 'today') {
-      setAnalyticsDateFrom(todayStr)
-      setAnalyticsDateTo(todayStr)
-    } else if (preset === 'week') {
-      const weekAgo = new Date(today)
-      weekAgo.setDate(today.getDate() - 6)
-      setAnalyticsDateFrom(weekAgo.toISOString().slice(0, 10))
-      setAnalyticsDateTo(todayStr)
-    } else if (preset === 'month') {
-      setAnalyticsDateFrom(`${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-01`)
-      setAnalyticsDateTo(todayStr)
-    } else if (preset === 'year') {
-      setAnalyticsDateFrom(`${today.getFullYear()}-01-01`)
-      setAnalyticsDateTo(todayStr)
-    }
+    const { from, to } = getPresetRange(preset)
+    setAnalyticsDateFrom(from)
+    setAnalyticsDateTo(to)
   }
 
   const loadData = useCallback(async () => {
@@ -379,13 +358,14 @@ export default function BillingAnalytics() {
     const creditOutstandingCount = 0
     const creditRevenue = 0
 
-    const todayKey = new Date().toISOString().slice(0, 10)
+    // Local (IST) day and month of each bill, not the UTC date in its timestamp
+    const todayKey = toLocalDateStr(new Date())
     const monthKey = todayKey.slice(0, 7)
     const todaySales = billableCompleted
-      .filter((order) => order.created_at.startsWith(todayKey))
+      .filter((order) => toLocalDateStr(new Date(order.created_at)) === todayKey)
       .reduce((sum, order) => sum + toNumber(order.total, 0), 0)
     const monthlyRevenue = billableCompleted
-      .filter((order) => order.created_at.startsWith(monthKey))
+      .filter((order) => toLocalDateStr(new Date(order.created_at)).startsWith(monthKey))
       .reduce((sum, order) => sum + toNumber(order.total, 0), 0)
 
     const completedIds = new Set(billableCompleted.map((order) => order.id))
@@ -465,15 +445,17 @@ export default function BillingAnalytics() {
 
     const weeklyRevenueMap = new Map<string, number>()
     billableCompleted.forEach((order) => {
-      const key = order.created_at.slice(0, 10)
+      // Local (IST) day, not the UTC day from the timestamp
+      const key = toLocalDateStr(new Date(order.created_at))
       weeklyRevenueMap.set(key, (weeklyRevenueMap.get(key) || 0) + toNumber(order.total, 0))
     })
-    const weekAnchor = new Date(`${analyticsDateTo || analyticsDateFrom || new Date().toISOString().slice(0, 10)}T00:00:00`)
+    const weekAnchor = new Date(`${analyticsDateTo || analyticsDateFrom || toLocalDateStr(new Date())}T00:00:00`)
     const weekStart = startOfWeekMonday(weekAnchor)
-    const weeklySales = Array.from({ length: 7 }, (_, index) => {
+    // Shop week: Monday to Saturday
+    const weeklySales = Array.from({ length: 6 }, (_, index) => {
       const date = new Date(weekStart)
       date.setDate(weekStart.getDate() + index)
-      const key = date.toISOString().slice(0, 10)
+      const key = toLocalDateStr(date)
       return {
         day: date.toLocaleDateString('en-IN', { weekday: 'long' }),
         date: key,

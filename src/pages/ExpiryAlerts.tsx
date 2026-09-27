@@ -6,6 +6,7 @@ import { formatCurrency } from '../lib/retail'
 import { supabase } from '../lib/supabase'
 import { getErrorMessage } from '../lib/errorMessage'
 import { inventoryService } from '../services/inventoryService'
+import { getPresetRange } from '../lib/dateRanges'
 
 type StatusFilter = 'expired' | 'soon' | 'all'
 type DatePreset = 'today' | 'week' | 'month' | 'year' | 'all' | 'custom'
@@ -40,38 +41,13 @@ export default function ExpiryAlerts() {
   useEffect(() => { void fetchProducts(true) }, [fetchProducts])
 
   const applyDatePreset = (preset: DatePreset) => {
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
-    const from = new Date(today)
-    const to = new Date(today)
-
-    switch (preset) {
-      case 'today':
-        setFromDate(today.toISOString().split('T')[0])
-        setToDate(today.toISOString().split('T')[0])
-        break
-      case 'week':
-        from.setDate(today.getDate() - today.getDay())
-        to.setDate(today.getDate() + (6 - today.getDay()))
-        setFromDate(from.toISOString().split('T')[0])
-        setToDate(to.toISOString().split('T')[0])
-        break
-      case 'month':
-        from.setDate(1)
-        to.setMonth(today.getMonth() + 1)
-        to.setDate(0)
-        setFromDate(from.toISOString().split('T')[0])
-        setToDate(to.toISOString().split('T')[0])
-        break
-      case 'year':
-        from.setMonth(0, 1)
-        to.setMonth(11, 31)
-        setFromDate(from.toISOString().split('T')[0])
-        setToDate(to.toISOString().split('T')[0])
-        break
-      default:
-        setFromDate('')
-        setToDate('')
+    if (preset === 'today' || preset === 'week' || preset === 'month' || preset === 'year') {
+      const { from, to } = getPresetRange(preset)
+      setFromDate(from)
+      setToDate(to)
+    } else {
+      setFromDate('')
+      setToDate('')
     }
     setDatePreset(preset)
   }

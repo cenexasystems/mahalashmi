@@ -38,7 +38,8 @@ export const parseDDMMYYYY = (dateString: string): string => {
     const d = new Date(year, month - 1, day)
     if (isNaN(d.getTime())) return ''
 
-    return d.toISOString().split('T')[0]
+    // Local date (toISOString would shift it to the previous day in IST)
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
   } catch {
     return ''
   }

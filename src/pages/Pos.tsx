@@ -38,6 +38,7 @@ import { AddUnregisteredItemModal } from '../components/pos/AddUnregisteredItemM
 import { getOrCreateUnregisteredProduct } from '../services/productService'
 import { customerService } from '../services/customerService'
 import { DateInputDDMMYYYY } from '../components/DateInputDDMMYYYY'
+import { toLocalDateStr } from '../lib/dateRanges'
 
 // ── Types ──────────────────────────────────────────────────────────────────
 type PosItem = Product & {
@@ -1770,7 +1771,7 @@ export default function Pos(props: PosProps = {}) {
                       type="date"
                       value={creditDueDate}
                       onChange={e => setCreditDueDate(e.target.value)}
-                      min={new Date().toISOString().slice(0, 10)}
+                      min={toLocalDateStr(new Date())}
                       className="w-full h-9 px-3 bg-white border border-amber-300 rounded-xl text-[13px] font-black text-[#111111] focus:outline-none focus:border-amber-600"
                     />
                     <p className="mt-1.5 text-[10px] font-bold text-amber-800">

@@ -5,6 +5,7 @@ import { formatCurrency, formatInvoiceNo } from '../../lib/retail'
 import { useSound } from '../../context/SoundContext'
 import { formatDateDDMMYYYY } from '../../lib/dateFormat'
 import type { DashboardOrder } from '../../pages/Dashboard'
+import { getPresetRange, toLocalDateStr } from '../../lib/dateRanges'
 
 export interface OutstandingCreditsViewProps {
   orders: DashboardOrder[]
@@ -72,38 +73,13 @@ export const OutstandingCreditsView: React.FC<OutstandingCreditsViewProps> = ({
   const [toDate, setToDate] = useState('')
 
   const applyDatePreset = (preset: DatePreset) => {
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
-    const from = new Date(today)
-    const to = new Date(today)
-
-    switch (preset) {
-      case 'today':
-        setFromDate(today.toISOString().split('T')[0])
-        setToDate(today.toISOString().split('T')[0])
-        break
-      case 'week':
-        from.setDate(today.getDate() - today.getDay())
-        to.setDate(today.getDate() + (6 - today.getDay()))
-        setFromDate(from.toISOString().split('T')[0])
-        setToDate(to.toISOString().split('T')[0])
-        break
-      case 'month':
-        from.setDate(1)
-        to.setMonth(today.getMonth() + 1)
-        to.setDate(0)
-        setFromDate(from.toISOString().split('T')[0])
-        setToDate(to.toISOString().split('T')[0])
-        break
-      case 'year':
-        from.setMonth(0, 1)
-        to.setMonth(11, 31)
-        setFromDate(from.toISOString().split('T')[0])
-        setToDate(to.toISOString().split('T')[0])
-        break
-      default:
-        setFromDate('')
-        setToDate('')
+    if (preset === 'today' || preset === 'week' || preset === 'month' || preset === 'year') {
+      const { from, to } = getPresetRange(preset)
+      setFromDate(from)
+      setToDate(to)
+    } else {
+      setFromDate('')
+      setToDate('')
     }
     setDatePreset(preset)
   }
@@ -113,11 +89,10 @@ export const OutstandingCreditsView: React.FC<OutstandingCreditsViewProps> = ({
       .filter(o => matchesSearch(o, search))
       .filter(o => {
         if (!fromDate && !toDate) return true
-        const saleDate = new Date(`${o.created_at.split('T')[0]}T00:00:00`)
-        const from = fromDate ? new Date(fromDate) : null
-        const to = toDate ? new Date(toDate) : null
-        if (from && saleDate < from) return false
-        if (to && saleDate > to) return false
+        // Compare local calendar dates (YYYY-MM-DD), so a bill made on the start day is included
+        const saleDay = toLocalDateStr(new Date(o.created_at))
+        if (fromDate && saleDay < fromDate) return false
+        if (toDate && saleDay > toDate) return false
         return true
       })
       .map(o => ({ ...o, daysOverdue: toDaysOverdue(o.credit_due_date || null) })),
@@ -128,11 +103,10 @@ export const OutstandingCreditsView: React.FC<OutstandingCreditsViewProps> = ({
       .filter(o => matchesSearch(o, search))
       .filter(o => {
         if (!fromDate && !toDate) return true
-        const saleDate = new Date(`${o.created_at.split('T')[0]}T00:00:00`)
-        const from = fromDate ? new Date(fromDate) : null
-        const to = toDate ? new Date(toDate) : null
-        if (from && saleDate < from) return false
-        if (to && saleDate > to) return false
+        // Compare local calendar dates (YYYY-MM-DD), so a bill made on the start day is included
+        const saleDay = toLocalDateStr(new Date(o.created_at))
+        if (fromDate && saleDay < fromDate) return false
+        if (toDate && saleDay > toDate) return false
         return true
       }),
     [historyOrders, search, fromDate, toDate]

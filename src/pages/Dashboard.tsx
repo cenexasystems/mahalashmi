@@ -77,6 +77,7 @@ import {
   Bar,
 } from 'recharts'
 import { ModalPortal } from '../components/ModalPortal'
+import { getPresetRange, startOfWeekMonday } from '../lib/dateRanges'
 
 export type DashboardOrder = {
   id: string; invoice_no: string; customer_name: string; phone: string; address: string
@@ -579,15 +580,14 @@ export default function Dashboard() {
       weeklyRevenueMap.set(k, (weeklyRevenueMap.get(k) || 0) + getOrderTotal(o))
     })
 
-    const currentDayOfWeek = new Date().getDay() || 7 // 1: Mon, ..., 7: Sun
-    const mondayDate = new Date()
-    mondayDate.setDate(mondayDate.getDate() - currentDayOfWeek + 1)
+    // Shop week: Monday to Saturday
+    const mondayDate = startOfWeekMonday(new Date())
 
-    const weeklySales = Array.from({ length: 7 }, (_, i) => {
+    const weeklySales = Array.from({ length: 6 }, (_, i) => {
       const d = new Date(mondayDate)
       d.setDate(d.getDate() + i)
       const k = toLocalDateKey(d)
-      // Force short weekday names in English to match Mon, Tue, Wed, Thu, Fri, Sat, Sun exactly
+      // Force short weekday names in English to match Mon, Tue, Wed, Thu, Fri, Sat exactly
       const dayName = new Intl.DateTimeFormat('en-US', { weekday: 'short' }).format(d)
       return { day: dayName, date: k, revenue: weeklyRevenueMap.get(k) || 0 }
     })
@@ -1097,34 +1097,15 @@ export default function Dashboard() {
     setAnalyticsDatePreset(preset)
     if (preset === 'all')    { setAnalyticsDateFrom(''); setAnalyticsDateTo(''); return }
     if (preset === 'custom') return
-    const today = new Date()
-    const todayStr = today.toISOString().slice(0, 10)
-    if (preset === 'today') {
-      setAnalyticsDateFrom(todayStr); setAnalyticsDateTo(todayStr)
-    } else if (preset === 'week') {
-      const d = new Date(today); d.setDate(today.getDate() - 6)
-      setAnalyticsDateFrom(d.toISOString().slice(0, 10)); setAnalyticsDateTo(todayStr)
-    } else if (preset === 'month') {
-      setAnalyticsDateFrom(`${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-01`)
-      setAnalyticsDateTo(todayStr)
-    } else if (preset === 'year') {
-      setAnalyticsDateFrom(`${today.getFullYear()}-01-01`); setAnalyticsDateTo(todayStr)
-    }
+    const { from, to } = getPresetRange(preset)
+    setAnalyticsDateFrom(from); setAnalyticsDateTo(to)
   }
 
   const applyDatePreset = (preset: 'today' | 'week' | 'month' | 'custom') => {
     setDatePreset(preset)
     if (preset === 'custom') { setSearch(s => ({ ...s, dateFrom: '', dateTo: '' })); return }
-    const today = new Date()
-    const todayStr = today.toISOString().slice(0, 10)
-    if (preset === 'today') {
-      setSearch(s => ({ ...s, dateFrom: todayStr, dateTo: todayStr }))
-    } else if (preset === 'week') {
-      const weekAgo = new Date(today); weekAgo.setDate(today.getDate() - 6)
-      setSearch(s => ({ ...s, dateFrom: weekAgo.toISOString().slice(0, 10), dateTo: todayStr }))
-    } else if (preset === 'month') {
-      setSearch(s => ({ ...s, dateFrom: `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-01`, dateTo: todayStr }))
-    }
+    const { from, to } = getPresetRange(preset)
+    setSearch(s => ({ ...s, dateFrom: from, dateTo: to }))
   }
 
   // Order search - POS bills only (online_request excluded)

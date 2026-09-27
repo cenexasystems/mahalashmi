@@ -23,6 +23,7 @@ import {
 } from '../../services/expenseService'
 import { RecordExpenseModal } from './RecordExpenseModal'
 import { ExpenseCategoriesView } from './ExpenseCategoriesView'
+import { getPresetRange } from '../../lib/dateRanges'
 
 export const ExpensesView: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'expenses' | 'categories'>('expenses')
@@ -110,29 +111,13 @@ export const ExpensesView: React.FC = () => {
   // Handle Preset Clicks (Synchronizes FROM and TO dates)
   const applyDatePreset = (preset: 'all' | 'today' | 'week' | 'month' | 'year') => {
     setActivePreset(preset)
-    const today = new Date()
-    const todayStr = today.toISOString().slice(0, 10)
-
     if (preset === 'all') {
       setFromDate('')
       setToDate('')
-    } else if (preset === 'today') {
-      setFromDate(todayStr)
-      setToDate(todayStr)
-    } else if (preset === 'week') {
-      const dayOfWeek = (today.getDay() + 6) % 7
-      const monday = new Date(today)
-      monday.setDate(today.getDate() - dayOfWeek)
-      setFromDate(monday.toISOString().slice(0, 10))
-      setToDate(todayStr)
-    } else if (preset === 'month') {
-      const monthStart = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-01`
-      setFromDate(monthStart)
-      setToDate(todayStr)
-    } else if (preset === 'year') {
-      const yearStart = `${today.getFullYear()}-01-01`
-      setFromDate(yearStart)
-      setToDate(todayStr)
+    } else {
+      const { from, to } = getPresetRange(preset)
+      setFromDate(from)
+      setToDate(to)
     }
   }
 
