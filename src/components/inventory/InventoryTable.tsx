@@ -29,6 +29,7 @@ import { InventoryAnalyticsView } from './InventoryAnalyticsView'
 import { AddEditProductView } from './AddEditProductView'
 import { useSound } from '../../context/SoundContext'
 import { getErrorMessage } from '../../lib/errorMessage'
+import { lowStockLimit } from '../../lib/stockLevels'
 
 type InventoryTab = 'stock' | 'products' | 'categories' | 'analytics'
 
@@ -55,9 +56,9 @@ export const InventoryTable: React.FC = () => {
   const [bulkLocationOpen, setBulkLocationOpen] = useState(false)
 
   const { play } = useSound()
-  const getStockStatus = (stock: number): 'ok' | 'low' | 'out' => (stock <= 0 ? 'out' : stock <= 5 ? 'low' : 'ok')
+  const getStockStatus = (item: InventoryStockItem): 'ok' | 'low' | 'out' => (item.stock <= 0 ? 'out' : item.stock <= lowStockLimit(item.low_stock_alert) ? 'low' : 'ok')
   const openAdjust = (item: InventoryStockItem) => {
-    const status = getStockStatus(item.stock)
+    const status = getStockStatus(item)
     if (status === 'low' || status === 'out') play('alert')
     setAdjustModalItem(item)
   }
@@ -121,7 +122,7 @@ export const InventoryTable: React.FC = () => {
     if (!matchesSearch) return false
 
     if (filterStatus === 'out') return item.stock <= 0
-    if (filterStatus === 'low') return item.stock > 0 && item.stock <= 5
+    if (filterStatus === 'low') return item.stock > 0 && item.stock <= lowStockLimit(item.low_stock_alert)
     if (filterStatus === 'in_stock') return item.stock > 0
 
     return true
@@ -151,7 +152,7 @@ export const InventoryTable: React.FC = () => {
   const totalSkus = items.length
   const totalUnits = items.reduce((sum, i) => sum + i.stock, 0)
   const outOfStockCount = items.filter((i) => i.stock <= 0).length
-  const lowStockCount = items.filter((i) => i.stock > 0 && i.stock <= 5).length
+  const lowStockCount = items.filter((i) => i.stock > 0 && i.stock <= lowStockLimit(i.low_stock_alert)).length
   const totalValuation = items.reduce((sum, i) => sum + i.stock * i.price, 0)
 
   interface ProductOptionType {
@@ -524,7 +525,7 @@ export const InventoryTable: React.FC = () => {
                             className={`inline-block px-2.5 py-1 rounded-full text-xs font-black ${
                               item.stock <= 0
                                 ? 'bg-red-50 text-red-700 border border-red-200'
-                                : item.stock <= 5
+                                : item.stock <= lowStockLimit(item.low_stock_alert)
                                 ? 'bg-amber-50 text-amber-700 border border-amber-200'
                                 : 'bg-emerald-50 text-emerald-800 border border-emerald-200'
                             }`}

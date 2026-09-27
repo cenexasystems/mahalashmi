@@ -4,6 +4,7 @@ import { supabase } from '../../lib/supabase'
 import { useSound } from '../../context/SoundContext'
 import { useAlarmQueueStore } from '../../store/alarmQueueStore'
 import { ModalPortal } from '../ModalPortal'
+import { lowStockLimit } from '../../lib/stockLevels'
 
 interface LowStockItem {
   id: string | number
@@ -59,10 +60,10 @@ export default function LowStockAlarmModal({ triggerKey }: { triggerKey?: string
       // alarm should respect the same exclusion instead of alerting on them.
       const low = (data as ProductStockRow[])
         .filter(p => !(p.category?.trim().toLowerCase() === 'unregistered'))
-        .filter(p => p.stock_quantity <= (p.low_stock_alert || 5))
+        .filter(p => p.stock_quantity <= lowStockLimit(p.low_stock_alert))
         .map(p => ({
           id: p.id, name: p.name, category: p.category,
-          stock_quantity: p.stock_quantity, low_stock_alert: p.low_stock_alert || 5,
+          stock_quantity: p.stock_quantity, low_stock_alert: lowStockLimit(p.low_stock_alert),
         }))
       if (low.length > 0) {
         setItems(low)

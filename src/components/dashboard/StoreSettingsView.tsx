@@ -342,7 +342,7 @@ export default function StoreSettingsView({ onAddProduct }: StoreSettingsViewPro
                     onCommit={n => setForm(f => ({ ...f, lowStockThreshold: n }))}
                   />
                 </Field>
-                <p className="text-[11px] text-[#6B7280] mt-1.5">Triggers automatic alerts and banners when product stock reaches or drops below this count.</p>
+                <p className="text-[11px] text-[#6B7280] mt-1.5">Starting value for new products. Each product can have its own limit in Add / Edit Products, and that one is used for its alerts.</p>
               </div>
               <div className="flex-1">
                 <Field label="Expiry Alert Window (days)">

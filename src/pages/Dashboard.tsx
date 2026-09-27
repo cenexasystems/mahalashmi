@@ -79,6 +79,7 @@ import {
 import { ModalPortal } from '../components/ModalPortal'
 import { getPresetRange, startOfWeekMonday, toLocalDateStr } from '../lib/dateRanges'
 import { csvDate, csvPhone, toCsv } from '../lib/csv'
+import { lowStockLimit } from '../lib/stockLevels'
 
 export type DashboardOrder = {
   id: string; invoice_no: string; customer_name: string; phone: string; address: string
@@ -1651,13 +1652,13 @@ export default function Dashboard() {
                 <div className="bg-white rounded-2xl border border-[#E5E7EB]/30 p-5 shadow-sm">
                   <h3 className="text-base font-black text-[#111111] mb-4">Low Stock Alerts</h3>
                   <div className="space-y-3">
-                    {products.filter(p => p.stock <= (p.lowStockAlert || 5)).slice(0, 10).map((p, i) => (
+                    {products.filter(p => p.stock <= lowStockLimit(p.lowStockAlert)).slice(0, 10).map((p, i) => (
                       <div key={i} className="flex justify-between items-center bg-red-50 border border-red-100 p-3 rounded-xl">
                         <p className="text-[13px] font-bold text-red-900">{p.name}</p>
                         <p className="text-[14px] font-black text-red-700">{p.stock} left</p>
                       </div>
                     ))}
-                    {products.filter(p => p.stock <= (p.lowStockAlert || 5)).length === 0 && (
+                    {products.filter(p => p.stock <= lowStockLimit(p.lowStockAlert)).length === 0 && (
                       <p className="text-[13px] text-[#374151]">No low stock alerts.</p>
                     )}
                   </div>

@@ -4,6 +4,7 @@ import { supabase } from '../../lib/supabase'
 import { getErrorMessage } from '../../lib/errorMessage'
 import type { ScannedItemPayload } from './BarcodeScannerInput'
 import { ModalPortal } from '../ModalPortal'
+import { defaultLowStockThreshold } from '../../lib/stockLevels'
 
 export interface QuickAddScannedProductModalProps {
   barcode: string
@@ -53,7 +54,7 @@ export const QuickAddScannedProductModal: React.FC<QuickAddScannedProductModalPr
           stock_quantity: stockNum,
           stock: stockNum,
           stock_unit: 'piece',
-          low_stock_alert: 5,
+          low_stock_alert: defaultLowStockThreshold(),
           barcode: barcode,
           has_variants: false,
           has_special_offer: false,

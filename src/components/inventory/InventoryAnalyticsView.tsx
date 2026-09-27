@@ -19,6 +19,7 @@ import { BRAND_MONOGRAM } from '../../lib/brand'
 import { downloadCsv, type XlsxColumn } from '../../lib/xlsxExport'
 import { getPresetDates } from '../../lib/dateRanges'
 import { csvDate } from '../../lib/csv'
+import { lowStockLimit } from '../../lib/stockLevels'
 
 export const InventoryAnalyticsView: React.FC = () => {
   const [range, setRange] = useState<'all' | 'today' | 'week' | 'month'>('all')
@@ -106,7 +107,7 @@ export const InventoryAnalyticsView: React.FC = () => {
         const stock = it.stock ?? 0
         const valCost = Math.round(costPrice * stock * 100) / 100
         const valRetail = Math.round(sellingPrice * stock * 100) / 100
-        const status = stock <= 0 ? 'Out of Stock' : stock <= 5 ? 'Low Stock' : 'In Stock'
+        const status = stock <= 0 ? 'Out of Stock' : stock <= lowStockLimit(it.low_stock_alert) ? 'Low Stock' : 'In Stock'
 
         return [
           it.product_id,

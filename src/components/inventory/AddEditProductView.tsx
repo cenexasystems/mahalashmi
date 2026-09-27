@@ -25,6 +25,7 @@ import { roundTo } from '../../lib/retail'
 import { UNIT_OPTIONS, findUnitOption } from '../../lib/units'
 import { DateInputDDMMYYYY } from '../DateInputDDMMYYYY'
 import { UnitSelect } from './UnitSelect'
+import { defaultLowStockThreshold } from '../../lib/stockLevels'
 
 // Makes the shared date input match the other fields in this form (height, padding,
 // background, text size); `!` is needed to beat the component's own defaults.
@@ -111,7 +112,7 @@ export const AddEditProductView: React.FC<{ onStockUpdated?: () => void }> = ({ 
   const [contentSize, setContentSize] = useState<string>('') // e.g. "200ml", "500g" for packets
   const [contentUnit, setContentUnit] = useState<string>('') // e.g. "ml", "g"
   const [stockQuantity, setStockQuantity] = useState<string>('0')
-  const [lowStockAlert, setLowStockAlert] = useState<string>('5')
+  const [lowStockAlert, setLowStockAlert] = useState<string>(() => String(defaultLowStockThreshold()))
   const [expiryDate, setExpiryDate] = useState<string>('')
   const [mfgDate, setMfgDate] = useState<string>('')
   const [location, setLocation] = useState<string>('')
@@ -173,7 +174,7 @@ export const AddEditProductView: React.FC<{ onStockUpdated?: () => void }> = ({ 
     setContentSize('')
     setContentUnit('')
     setStockQuantity('0')
-    setLowStockAlert('5')
+    setLowStockAlert(String(defaultLowStockThreshold()))
     setExpiryDate('')
     setMfgDate('')
     setLocation('')
@@ -204,7 +205,7 @@ export const AddEditProductView: React.FC<{ onStockUpdated?: () => void }> = ({ 
       setCustomUnitLabel(p.unitLabel || '')
     }
     setStockQuantity(String(p.stockQuantity ?? p.stock ?? 0))
-    setLowStockAlert(p.lowStockAlert ? String(p.lowStockAlert) : '5')
+    setLowStockAlert(p.lowStockAlert ? String(p.lowStockAlert) : String(defaultLowStockThreshold()))
     setExpiryDate(p.expiryDate || '')
     setMfgDate(p.mfgDate || '')
     setLocation(p.location || '')
@@ -1381,6 +1382,21 @@ export const AddEditProductView: React.FC<{ onStockUpdated?: () => void }> = ({ 
                         />
                       </div>
 
+                      {hasVariants && (
+                      <div className="sm:col-span-2">
+                        <label className="block text-[11px] font-bold text-gray-700 mb-1.5 h-4 flex items-center">
+                          Description / Notes <span className="text-gray-400 font-normal ml-1">(Optional)</span>
+                        </label>
+                        <textarea
+                        rows={1}
+                        placeholder="Product material, care instructions, or rack location notes..."
+                        value={description}
+                        onChange={(e) => setDescription(e.target.value)}
+                        className="w-full h-10 px-3.5 py-2.5 leading-5 rounded-xl border border-gray-200 bg-[#FAFAFA] text-xs font-medium text-gray-900 outline-none focus:border-[#0A0A0A] resize-none"
+                      />
+                      </div>
+                      )}
+
                       <div>
                         <label className="block text-[11px] font-bold text-gray-700 mb-1.5 h-4 flex items-center">
                           Low Stock Alert Threshold
@@ -1395,11 +1411,7 @@ export const AddEditProductView: React.FC<{ onStockUpdated?: () => void }> = ({ 
                         />
                       </div>
 
-                      {hasVariants ? (
-                      <p className="sm:col-span-2 self-end pb-2.5 text-[11px] font-semibold text-gray-500">
-                        Mfg and expiry dates are set for each pack size above.
-                      </p>
-                      ) : (<>
+                      {!hasVariants && (<>
                       <div>
                         <label className="block text-[11px] font-bold text-gray-700 mb-1.5 h-4 flex items-center">
                           Mfg Date
@@ -1439,7 +1451,8 @@ export const AddEditProductView: React.FC<{ onStockUpdated?: () => void }> = ({ 
                       </>)}
                     </div>
 
-                    {/* Description */}
+                    {/* Description (with pack sizes it sits beside Low Stock Alert above) */}
+                    {!hasVariants && (
                     <div>
                       <label className="block text-[11px] font-bold text-gray-700 mb-1.5 h-4 flex items-center">
                         Description / Notes <span className="text-gray-400 font-normal ml-1">(Optional)</span>
@@ -1452,6 +1465,7 @@ export const AddEditProductView: React.FC<{ onStockUpdated?: () => void }> = ({ 
                         className="w-full p-3.5 rounded-xl border border-gray-200 bg-[#FAFAFA] text-xs font-medium text-gray-900 outline-none focus:border-[#0A0A0A] resize-none"
                       />
                     </div>
+                    )}
 
                     {/* Special Offer / Free Gift */}
                     <div className="border border-gray-200 rounded-2xl p-4 bg-white space-y-3">
