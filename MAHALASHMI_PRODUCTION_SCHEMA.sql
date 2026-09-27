@@ -909,12 +909,10 @@ CREATE OR REPLACE FUNCTION public.complete_advance_order_v2(
 )
 RETURNS JSON AS $$
 DECLARE
-  v_completed_order_id UUID;
   v_invoice_no TEXT;
   v_completed_at TIMESTAMP;
   v_advance_order RECORD;
 BEGIN
-  v_completed_order_id := gen_random_uuid();
   v_completed_at := NOW();
   v_invoice_no := 'INV' || LPAD(CAST(FLOOR(EXTRACT(EPOCH FROM v_completed_at) * 1000) AS BIGINT)::TEXT, 15, '0');
 
@@ -925,7 +923,7 @@ BEGIN
   END IF;
 
   UPDATE public.advance_orders
-  SET status = 'completed', completed_at = v_completed_at, completed_order_id = v_completed_order_id,
+  SET status = 'completed', completed_at = v_completed_at,
       invoice_number = v_invoice_no, final_payment_method = p_payment_method, remarks = COALESCE(p_remarks, remarks),
       updated_at = v_completed_at
   WHERE id = p_order_id;
