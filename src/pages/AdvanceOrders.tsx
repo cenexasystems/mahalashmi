@@ -213,6 +213,17 @@ export default function AdvanceOrders({ onOrderCompleted }: AdvanceOrdersProps =
       customerName: order.customer_name,
       phone: order.phone,
       invoiceNumber: invNum,
+      invoiceDate: order.created_at,
+      items: [{
+        name: order.product_name,
+        qty: 1,
+        unit: 'pcs',
+        unitType: 'unit',
+        rate: order.total_amount,
+        lineTotal: order.total_amount,
+      }],
+      subtotal: order.total_amount,
+      total: order.total_amount,
       invoiceUrl: publicInvoiceUrl(invNum),
     })
     window.open(toWhatsAppUrl(order.phone, message), '_blank', 'noopener,noreferrer')
