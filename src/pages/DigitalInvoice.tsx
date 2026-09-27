@@ -88,6 +88,24 @@ export default function DigitalInvoice() {
             row = idData
           }
 
+          // Check advance_orders table for invoices (advance orders create invoices differently)
+          if (!row) {
+            const tryAdvanceTable = async (invNo: string) => supabase.from('advance_orders').select('*').eq('invoice_number', invNo).maybeSingle()
+
+            let advanceResult = await tryAdvanceTable(identifier)
+            if (!advanceResult.data && strippedIdentifier && strippedIdentifier !== identifier) {
+              advanceResult = await tryAdvanceTable(strippedIdentifier)
+            }
+            if (!advanceResult.data && cleanIdentifier && cleanIdentifier !== identifier && cleanIdentifier !== strippedIdentifier) {
+              advanceResult = await tryAdvanceTable(cleanIdentifier)
+            }
+            if (!advanceResult.data && formattedIdentifier && formattedIdentifier !== identifier && formattedIdentifier !== strippedIdentifier) {
+              advanceResult = await tryAdvanceTable(formattedIdentifier)
+            }
+
+            row = advanceResult.data
+          }
+
           if (!row) throw new Error('Invoice not found')
         }
 
