@@ -123,7 +123,7 @@ DECLARE
 BEGIN
   v_order_id := gen_random_uuid();
   v_order_created_at := NOW();
-  v_invoice_no := LPAD(CAST(nextval('public.invoice_counter') AS TEXT), 16, '0');
+  v_invoice_no := 'INV' || LPAD(CAST(nextval('public.invoice_counter') AS TEXT), 16, '0');
 
   INSERT INTO public.orders (
     id, invoice_no, customer_name, phone, address, items, shipping,
@@ -230,7 +230,7 @@ DECLARE
   v_advance_order RECORD;
 BEGIN
   v_completed_at := NOW();
-  v_invoice_no := LPAD(CAST(nextval('public.invoice_counter') AS TEXT), 16, '0');
+  v_invoice_no := 'INV' || LPAD(CAST(nextval('public.invoice_counter') AS TEXT), 16, '0');
 
   SELECT * INTO v_advance_order FROM public.advance_orders WHERE id = p_order_id;
 

@@ -725,7 +725,7 @@ DECLARE
 BEGIN
   v_order_id := gen_random_uuid();
   v_order_created_at := NOW();
-  v_invoice_no := LPAD(CAST(nextval('public.invoice_counter') AS TEXT), 16, '0');
+  v_invoice_no := 'INV' || LPAD(CAST(nextval('public.invoice_counter') AS TEXT), 16, '0');
 
   INSERT INTO public.orders (
     id, invoice_no, customer_name, phone, address, items, shipping,
@@ -771,7 +771,7 @@ DECLARE
 BEGIN
   v_order_id := gen_random_uuid();
   v_order_created_at := NOW();
-  v_invoice_no := LPAD(CAST(nextval('public.invoice_counter') AS TEXT), 16, '0');
+  v_invoice_no := 'INV' || LPAD(CAST(nextval('public.invoice_counter') AS TEXT), 16, '0');
 
   INSERT INTO public.orders (
     id, invoice_no, customer_name, phone, address, items, shipping,
