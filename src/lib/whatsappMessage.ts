@@ -61,9 +61,10 @@ export type AdvanceDepositWhatsAppInput = {
 }
 
 export const publicInvoiceUrl = (invoiceNumberOrId: string) => {
-  // Support both invoice numbers and order IDs (including decimals from timestamp formatting)
-  const isInvoiceNumber = invoiceNumberOrId.match(/^INV[\d.]+|^[\d.]+/i)
-  const identifier = isInvoiceNumber ? formatInvoiceNo(invoiceNumberOrId) : invoiceNumberOrId
+  // Link with the invoice number exactly as stored (or the order id). Reformatting it
+  // here (e.g. keeping only the last 8 digits) produces a number the invoice page
+  // cannot find in the database.
+  const identifier = String(invoiceNumberOrId || '').trim()
   const envUrl = (import.meta.env.VITE_SITE_URL as string | undefined)?.replace(/\/$/, '')
   const origin =
     envUrl ||

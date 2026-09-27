@@ -28,6 +28,6 @@ export const BRAND_WHATSAPP_LINK = `https://wa.me/${BRAND_PRIMARY_PHONE_E164}`
 
 export const BRAND_EMAIL = 'senthamil75714@gmail.com'
 export const BRAND_ADDRESS = "5/85, Teacher's Colony, Masinaickanpatty, Ayyothiyapattanam, Salem - 636103"
-export const BRAND_INSTAGRAM = '@mahalashmi_stores'
+export const BRAND_INSTAGRAM = 'mahalashmi_stores'
 export const BRAND_INSTAGRAM_URL = 'https://instagram.com/mahalashmi_stores'
 export const BRAND_LOCATION_LINK = '#'

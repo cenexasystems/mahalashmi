@@ -456,7 +456,7 @@ export const useSettingsStore = create<SettingsState>()((set) => ({
             phone: data.phone,
             email: data.email || '',
             address: data.address,
-            instagramHandle: data.instagram_handle || '',
+            instagramHandle: String(data.instagram_handle || '').trim().replace(/^@+/, ''),
             gstEnabled: data.gst_enabled,
             lowStockThreshold: Number(data.low_stock_threshold ?? 5),
             expiryAlertDays: Number(data.expiry_alert_days ?? 30),

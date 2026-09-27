@@ -164,9 +164,17 @@ export default function DigitalInvoice() {
   const invoiceItems = (Array.isArray(invoice.items) ? invoice.items : [])
     .map((item: Record<string, unknown>) => normalizeStructuredOrderItem(item))
   const subtotal = invoiceItems.reduce((sum: number, item: ReturnType<typeof normalizeStructuredOrderItem>) => sum + item.line_total, 0)
-  const isCredit = invoice.credit_status === 'outstanding' || invoice.credit_status === 'paid'
-  const creditDueDate: string | null = invoice.credit_status === 'outstanding' ? (invoice.credit_due_date || null) : null
-  const creditPaidAt: string | null = invoice.credit_status === 'paid' ? (invoice.credit_paid_at || null) : null
+  // Older versions of the public-invoice RPC don't return `total`; derive it from the items
+  // so the page, PDF, receipt and WhatsApp message all show the same amount.
+  const invoiceTotal = Number(invoice.total) > 0
+    ? Number(invoice.total)
+    : subtotal + Number(invoice.delivery_charge || 0) + Number(invoice.total_gst || invoice.gst_amount || 0) - Number(invoice.discount_amount || 0) - Number(invoice.manual_discount_amount || 0)
+  // Same RPC gap for credit_status: fall back to is_credit / credit_paid_at.
+  const creditStatus: string | null = invoice.credit_status
+    || (invoice.is_credit ? (invoice.credit_paid_at ? 'paid' : 'outstanding') : null)
+  const isCredit = creditStatus === 'outstanding' || creditStatus === 'paid'
+  const creditDueDate: string | null = creditStatus === 'outstanding' ? (invoice.credit_due_date || null) : null
+  const creditPaidAt: string | null = creditStatus === 'paid' ? (invoice.credit_paid_at || null) : null
 
   const buildPdfData = () => ({
     invoiceNo: invoice.invoice_no,
@@ -177,7 +185,7 @@ export default function DigitalInvoice() {
     items: invoiceItems as unknown as Array<Record<string, unknown>>,
     subtotal,
     shipping: Number(invoice.delivery_charge || 0),
-    total: Number(invoice.total || 0),
+    total: invoiceTotal,
     discountAmount: Number(invoice.discount_amount || 0),
     manualDiscountAmount: Number(invoice.manual_discount_amount || 0),
     gstAmount: Number(invoice.total_gst || invoice.gst_amount || 0),
@@ -222,7 +230,7 @@ export default function DigitalInvoice() {
       manualDiscountAmount: invoice.manual_discount_amount,
       shipping: invoice.delivery_charge,
       gstAmount: invoice.total_gst || invoice.gst_amount || 0,
-      total: invoice.total,
+      total: invoiceTotal,
       paymentMode: invoice.payment_mode || invoice.payment_method,
       isCredit,
       creditDueDate,
@@ -263,7 +271,6 @@ export default function DigitalInvoice() {
   }
 
   const printReceipt = () => {
-    const subtotal = invoice.total - (invoice.delivery_charge || 0) + (invoice.discount_amount || 0)
     printThermalReceipt({
       invoiceNo: invoice.invoice_no,
       date: invoice.created_at,
@@ -280,7 +287,7 @@ export default function DigitalInvoice() {
       shipping: invoice.delivery_charge || 0,
       couponDiscount: invoice.discount_amount || 0,
       totalGst: invoice.total_gst || invoice.gst_amount || 0,
-      total: invoice.total > 0 ? invoice.total : (subtotal + (invoice.delivery_charge || 0) + (invoice.total_gst || invoice.gst_amount || 0) - (invoice.discount_amount || 0) - (invoice.manual_discount_amount || 0)),
+      total: invoiceTotal,
       isCredit,
       creditDueDate,
       creditPaidAt,
@@ -325,7 +332,7 @@ export default function DigitalInvoice() {
             manualDiscountAmount={invoice.manual_discount_amount || 0}
             gstAmount={invoice.total_gst || invoice.gst_amount || 0}
             couponCode={invoice.coupon_code}
-            total={invoice.total > 0 ? invoice.total : (subtotal + (invoice.delivery_charge || 0) + (invoice.total_gst || invoice.gst_amount || 0) - (invoice.discount_amount || 0) - (invoice.manual_discount_amount || 0))}
+            total={invoiceTotal}
             status={invoice.status}
             paymentMode={invoice.payment_mode || invoice.payment_method}
             isCredit={isCredit}
