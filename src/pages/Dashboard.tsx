@@ -82,7 +82,7 @@ export type DashboardOrder = {
   created_at: string; total: number; status: string; order_mode: string; order_type: string; user_id: string | null; items: unknown
   coupon_code: string; discount_amount: number; manual_discount_amount: number; delivery_charge: number
   total_gst: number; payment_mode: string; payment_method?: string; invoice_pdf_url: string; remarks?: string; reference_number?: string
-  credit_due_date?: string | null; credit_status?: string | null; credit_paid_at?: string | null
+  is_credit?: boolean; credit_due_date?: string | null; credit_status?: string | null; credit_paid_at?: string | null
 }
 type DashboardOrderItem = { order_id: string; product_name: string; category?: string; quantity: number; line_total: number; is_manual?: boolean | null }
 type DashboardCoupon = {
