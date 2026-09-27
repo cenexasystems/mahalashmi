@@ -169,6 +169,7 @@ CREATE TABLE IF NOT EXISTS public.product_variants (
   stock NUMERIC(12,3) NOT NULL DEFAULT 0,
   damage_stock NUMERIC(12,3) NOT NULL DEFAULT 0,
   expiry_date DATE,
+  mfg_date DATE,
   is_default BOOLEAN NOT NULL DEFAULT FALSE,
   is_active BOOLEAN NOT NULL DEFAULT TRUE,
   sort_order INTEGER NOT NULL DEFAULT 0,
@@ -177,6 +178,11 @@ CREATE TABLE IF NOT EXISTS public.product_variants (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+-- Pack size batch manufacturing date (added after launch)
+ALTER TABLE public.product_variants
+  ADD COLUMN IF NOT EXISTS mfg_date DATE;
+
 
 CREATE UNIQUE INDEX IF NOT EXISTS product_variants_product_name_unique
   ON public.product_variants (product_id, LOWER(BTRIM(variant_name)));

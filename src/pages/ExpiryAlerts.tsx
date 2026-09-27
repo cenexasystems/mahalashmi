@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { CalendarClock, CalendarPlus, CalendarX2, Check, ChevronDown, ChevronUp, Download, Pencil, RefreshCw, Save, Search, Trash2, X } from 'lucide-react'
 import { useAdminAuthStore, useProductStore, useSettingsStore } from '../store/store'
 import { formatCurrency } from '../lib/retail'
@@ -7,6 +6,7 @@ import { supabase } from '../lib/supabase'
 import { getErrorMessage } from '../lib/errorMessage'
 import { inventoryService } from '../services/inventoryService'
 import { getPresetRange } from '../lib/dateRanges'
+import { csvDate, toCsv } from '../lib/csv'
 
 type StatusFilter = 'expired' | 'soon' | 'all'
 type DatePreset = 'today' | 'week' | 'month' | 'year' | 'all' | 'custom'
@@ -16,7 +16,6 @@ export default function ExpiryAlerts() {
   const alertDays = useSettingsStore(s => s.settings?.expiryAlertDays ?? 30)
   const role = useAdminAuthStore(state => state.role)
   const isAdmin = role === 'admin'
-  const navigate = useNavigate()
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('expired')
   const [datePreset, setDatePreset] = useState<DatePreset>('all')
@@ -162,11 +161,10 @@ export default function ExpiryAlerts() {
     )
     .filter(p => {
       if (!fromDate && !toDate) return true
-      const expiryDate = new Date(`${p.expiryDate}T00:00:00`)
-      const from = fromDate ? new Date(fromDate) : null
-      const to = toDate ? new Date(toDate) : null
-      if (from && expiryDate < from) return false
-      if (to && expiryDate > to) return false
+      // Compare calendar dates (YYYY-MM-DD) so the first and last day are both included
+      const expiry = String(p.expiryDate || '').slice(0, 10)
+      if (fromDate && expiry < fromDate) return false
+      if (toDate && expiry > toDate) return false
       return true
     })
 
@@ -177,11 +175,11 @@ export default function ExpiryAlerts() {
       p.category || 'General',
       String(p.stockQuantity ?? p.stock ?? 0),
       Number(p.price || 0).toFixed(2),
-      p.mfgDate || '',
-      p.expiryDate || '',
+      csvDate(p.mfgDate),
+      csvDate(p.expiryDate),
       p.daysLeft < 0 ? `Expired ${Math.abs(p.daysLeft)} day(s) ago` : `Expires in ${p.daysLeft} day(s)`,
     ])
-    const csv = [header, ...rows].map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n')
+    const csv = toCsv([header, ...rows])
     const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
@@ -203,18 +201,7 @@ export default function ExpiryAlerts() {
           <p className="text-xs font-black uppercase tracking-[.18em] text-emerald-600">Batches that need attention</p>
           <h2 className="text-2xl font-black text-[#273126]">Expiry Alerts</h2>
           <p className="mt-1 text-sm text-[#6B7280]">
-            Flagging items within {alertDays} days of their expiry date.{' '}
-            {isAdmin ? (
-              <button
-                type="button"
-                onClick={() => navigate('/dashboard?tab=settings')}
-                className="font-bold text-[var(--accent)] hover:underline cursor-pointer"
-              >
-                Customize window
-              </button>
-            ) : (
-              <span className="text-[#9CA3AF]">Set by your admin in Store Settings.</span>
-            )}
+            Flagging items within {alertDays} days of their expiry date.
           </p>
         </div>
         <div className="flex gap-2">

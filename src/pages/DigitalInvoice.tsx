@@ -218,6 +218,8 @@ export default function DigitalInvoice() {
       unitType: item.unit_type,
       rate: item.base_price,
       lineTotal: item.line_total,
+      giftNote: item.special_offer_note,
+      giftValue: item.special_offer_cost,
     }))
     const message = buildProfessionalWhatsAppMessage({
       customerName: invoice.customer_name,

@@ -1,6 +1,7 @@
 import { isSupabaseConfigured, supabase } from '../lib/supabase'
 import { BRAND_MONOGRAM } from '../lib/brand'
 import { getPresetRange, toLocalDateStr } from '../lib/dateRanges'
+import { csvDate, toCsv } from '../lib/csv'
 
 export interface ExpenseRecord {
   id: string
@@ -429,20 +430,19 @@ export const expenseService = {
 export function exportExpensesToCSV(expenses: ExpenseRecord[]): void {
   const headers = ['Date', 'Category', 'Description', 'Amount (INR)', 'Recorded By']
   const rows = expenses.map((e) => [
-    e.expense_date,
-    `"${(e.category_name || 'Uncategorized').replace(/"/g, '""')}"`,
-    `"${(e.description || '').replace(/"/g, '""')}"`,
+    csvDate(e.expense_date),
+    e.category_name || 'Uncategorized',
+    e.description || '',
     Number(e.amount || 0).toFixed(2),
-    `"${(e.recorded_by_name || 'Staff').replace(/"/g, '""')}"`,
+    e.recorded_by_name || 'Staff',
   ])
 
-  const csvContent =
-    [headers.join(','), ...rows.map((r) => r.join(','))].join('\r\n')
+  const csvContent = toCsv([headers, ...rows])
   const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' })
   const url = URL.createObjectURL(blob)
   const link = document.createElement('a')
   link.href = url
-  link.download = `${BRAND_MONOGRAM}-Expenses-${new Date().toISOString().slice(0, 10)}.csv`
+  link.download = `${BRAND_MONOGRAM}-Expenses-${toLocalDateStr(new Date())}.csv`
   document.body.appendChild(link)
   link.click()
   document.body.removeChild(link)

@@ -6,6 +6,7 @@ import { useEventOfferSettings } from '../../lib/eventOfferSettings'
 import { toWhatsAppUrl } from '../../lib/phone'
 import EventOfferPanel from './EventOfferPanel'
 import { getPresetRange, yearlyDateInRange, type RangePreset } from '../../lib/dateRanges'
+import { csvDate, csvPhone, toCsv } from '../../lib/csv'
 
 type PageType = 'calendar' | 'customers'
 
@@ -64,8 +65,10 @@ export default function BirthdayView() {
       .filter(c => c.birthday)
       .forEach(customer => {
         const d = new Date(`${customer.birthday}T00:00:00`)
-        if (d.getMonth() === currentMonth && d.getFullYear() === currentYear) {
-          const day = d.getDate()
+        // Repeats every year on the same day and month (29 Feb shows on 28 Feb in non-leap years)
+        if (d.getMonth() === currentMonth) {
+          const lastDay = new Date(currentYear, currentMonth + 1, 0).getDate()
+          const day = Math.min(d.getDate(), lastDay)
           if (!daysMap.has(day)) daysMap.set(day, [])
           daysMap.get(day)?.push(customer)
         }
@@ -116,12 +119,12 @@ export default function BirthdayView() {
     const headers = ['Customer Name', 'Phone', 'Date of Birth', 'Amount Spent']
     const rows = filtered.map(c => [
       c.name,
-      c.phone,
-      new Date(`${c.birthday}T00:00:00`).toLocaleDateString('en-IN'),
+      csvPhone(c.phone),
+      csvDate(c.birthday),
       '₹0'
     ])
-    const csv = [headers, ...rows].map(row => row.map(cell => `"${cell}"`).join(',')).join('\n')
-    const blob = new Blob([csv], { type: 'text/csv' })
+    const csv = toCsv([headers, ...rows])
+    const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' })
     const url = window.URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
@@ -179,7 +182,7 @@ export default function BirthdayView() {
                     {Array.from({ length: 12 }, (_, i) => <option key={i} value={i}>{new Date(2024, i, 1).toLocaleDateString('en-IN', { month: 'short' })}</option>)}
                   </select>
                   <select value={currentYear} onChange={(e) => setCurrentYear(parseInt(e.target.value))} className="rounded-lg border border-[#E5E7EB] bg-white px-2 py-1.5 text-xs font-bold">
-                    {Array.from({ length: 5 }, (_, i) => { const year = new Date().getFullYear() - 2 + i; return <option key={year} value={year}>{year}</option> })}
+                    {Array.from({ length: new Date().getFullYear() + 30 - 1940 + 1 }, (_, i) => { const year = 1940 + i; return <option key={year} value={year}>{year}</option> })}
                   </select>
                 </div>
                 <div className="flex gap-1">

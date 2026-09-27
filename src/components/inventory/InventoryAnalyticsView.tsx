@@ -18,6 +18,7 @@ import {
 import { BRAND_MONOGRAM } from '../../lib/brand'
 import { downloadCsv, type XlsxColumn } from '../../lib/xlsxExport'
 import { getPresetDates } from '../../lib/dateRanges'
+import { csvDate } from '../../lib/csv'
 
 export const InventoryAnalyticsView: React.FC = () => {
   const [range, setRange] = useState<'all' | 'today' | 'week' | 'month'>('all')
@@ -121,7 +122,7 @@ export const InventoryAnalyticsView: React.FC = () => {
           valCost,
           valRetail,
           status,
-          it.updated_at ? new Date(it.updated_at).toLocaleString() : ''
+          csvDate(it.updated_at, true)
         ]
       })
 
@@ -153,7 +154,7 @@ export const InventoryAnalyticsView: React.FC = () => {
     ]
 
     const rows = filteredMovements.map((m) => [
-      new Date(m.created_at).toLocaleString(),
+      csvDate(m.created_at, true),
       m.movement_type,
       m.product?.name || 'Unknown',
       m.variant?.variant_name || '',

@@ -77,7 +77,8 @@ import {
   Bar,
 } from 'recharts'
 import { ModalPortal } from '../components/ModalPortal'
-import { getPresetRange, startOfWeekMonday } from '../lib/dateRanges'
+import { getPresetRange, startOfWeekMonday, toLocalDateStr } from '../lib/dateRanges'
+import { csvDate, csvPhone, toCsv } from '../lib/csv'
 
 export type DashboardOrder = {
   id: string; invoice_no: string; customer_name: string; phone: string; address: string
@@ -151,24 +152,24 @@ const exportCSV = (orders: DashboardOrder[]) => {
   const header = ['Order Ref', 'Customer', 'Phone', 'Date', 'Total (INR)', 'Order Type', 'Status']
   const rows = orders.map(o => {
     const historyDate = getOrderHistoryDate(o)
-    const dateStr = historyDate ? new Date(historyDate).toLocaleDateString('en-MY') : 'N/A'
+    const dateStr = historyDate ? csvDate(historyDate, true) : 'N/A'
     const total = getOrderTotal(o) || 0
     return [
-      o.order_type === 'online_request' ? o.id : o.invoice_no,
+      o.order_type === 'online_request' ? o.id : formatInvoiceNo(o.invoice_no),
       o.customer_name || 'Customer',
-      o.phone || '',
+      csvPhone(o.phone),
       dateStr,
       total.toFixed(2),
       o.order_type || 'unknown',
       o.status || 'pending',
     ]
   })
-  const csv = [header, ...rows].map(r => r.map(c => `"${String(c || '').replace(/"/g, '""')}"`).join(',')).join('\n')
+  const csv = toCsv([header, ...rows])
   const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' })
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url
-  a.download = `orders_${new Date().toISOString().slice(0, 10)}.csv`
+  a.download = `orders_${toLocalDateStr(new Date())}.csv`
   a.click()
   URL.revokeObjectURL(url)
 }
@@ -498,18 +499,27 @@ export default function Dashboard() {
 
     const monthlyRevenue = billableCompleted.filter(o => toLocalMonthKey(o.created_at) === monthKey).reduce((s, o) => s + getOrderTotal(o), 0)
 
-    // Item-level analytics
-    const completedIds = new Set(billableCompleted.map(o => o.id))
-    const completedItems = orderItems.length > 0
-      ? orderItems.filter(item => completedIds.has(item.order_id))
-      : completedOrders.flatMap(order => parseOrderItems(order.items).map(row => ({
-          order_id: order.id,
-          product_name: String((row as Record<string,unknown>).product_name || (row as Record<string,unknown>).name || 'Product'),
-          category: String((row as Record<string,unknown>).category || ''),
-          quantity: toNumber((row as Record<string,unknown>).quantity ?? (row as Record<string,unknown>).qty, 0),
-          line_total: toNumber((row as Record<string,unknown>).line_total ?? (row as Record<string,unknown>).lineTotal, 0),
-          is_manual: (row as Record<string,unknown>).is_manual === true || (row as Record<string,unknown>).source === 'manual',
-        })))
+    // Item-level analytics: items saved on each counted bill. The older order_items
+    // table only holds rows for some bills, so it is used only for bills that
+    // have no items stored on the bill itself.
+    const legacyItemsByOrder = new Map<string, typeof orderItems>()
+    orderItems.forEach(item => {
+      const list = legacyItemsByOrder.get(item.order_id) || []
+      list.push(item)
+      legacyItemsByOrder.set(item.order_id, list)
+    })
+    const completedItems = billableCompleted.flatMap(order => {
+      const rows = parseOrderItems(order.items)
+      if (rows.length === 0) return legacyItemsByOrder.get(order.id) || []
+      return rows.map(row => ({
+        order_id: order.id,
+        product_name: String((row as Record<string,unknown>).product_name || (row as Record<string,unknown>).name || 'Product'),
+        category: String((row as Record<string,unknown>).category || ''),
+        quantity: toNumber((row as Record<string,unknown>).quantity ?? (row as Record<string,unknown>).qty, 0),
+        line_total: toNumber((row as Record<string,unknown>).line_total ?? (row as Record<string,unknown>).lineTotal, 0),
+        is_manual: (row as Record<string,unknown>).is_manual === true || (row as Record<string,unknown>).source === 'manual',
+      }))
+    })
 
     const productMap    = new Map<string, { name: string; variant: string; qty: number; revenue: number; billCount: number }>()
     const productOrders = new Map<string, Set<string>>()
@@ -881,6 +891,8 @@ export default function Dashboard() {
         unitType: item.unit_type,
         rate: item.base_price,
         lineTotal: item.line_total,
+        giftNote: item.special_offer_note,
+        giftValue: item.special_offer_cost,
       })),
       subtotal,
       couponDiscount: order.discount_amount,
@@ -919,12 +931,16 @@ export default function Dashboard() {
         price?: number
         base_price?: number
         line_total?: number
+        special_offer_note?: string | null
+        special_offer_cost?: number | null
       }>).map((item) => ({
         name: item.name || item.product_name || '',
         qty: item.qty || item.quantity || 0,
         unit: item.unit || '',
         price: item.price || item.base_price || 0,
-        line_total: item.line_total || 0
+        line_total: item.line_total || 0,
+        special_offer_note: item.special_offer_note,
+        special_offer_cost: item.special_offer_cost,
       })),
       subtotal,
       shipping: order.delivery_charge || 0,
@@ -1788,6 +1804,8 @@ export default function Dashboard() {
                         unitType: item.unit_type,
                         rate: item.base_price,
                         lineTotal: item.line_total,
+                        giftNote: item.special_offer_note,
+                        giftValue: item.special_offer_cost,
                       })),
                       subtotal: normalizedItems.reduce((sum, item) => sum + item.line_total, 0),
                       total: getOrderTotal(order),
@@ -1928,6 +1946,8 @@ export default function Dashboard() {
                             unitType: item.unit_type,
                             rate: item.base_price,
                             lineTotal: item.line_total,
+                            giftNote: item.special_offer_note,
+                            giftValue: item.special_offer_cost,
                           })),
                           subtotal: normalizedItems.reduce((sum, item) => sum + item.line_total, 0),
                           total: getOrderTotal(order),

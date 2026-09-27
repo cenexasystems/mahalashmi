@@ -182,6 +182,28 @@ export function createInvoicePdf(data: InvoicePdfData): Blob {
     doc.setTextColor(ink)
     doc.text(money(item.line_total), right - 4, y, { align: 'right' })
     y += Math.max(10, nameLines.length * 4 + 4)
+    // Free gift with this item: its own line with the value struck through, marked FREE (not in the total)
+    const giftNote = String(item.special_offer_note || '').trim()
+    if (giftNote) {
+      if (y > 270) { doc.addPage(); y = 20 }
+      const giftValue = Number(item.special_offer_cost) || 0
+      doc.setFont('helvetica', 'bold')
+      doc.setFontSize(7.5)
+      doc.setTextColor('#92400E')
+      doc.text(doc.splitTextToSize(`FREE GIFT: ${giftNote}`, 105) as string[], left + 14, y - 3)
+      doc.setFont('helvetica', 'normal')
+      doc.text('1', 140, y - 3, { align: 'right' })
+      if (giftValue > 0) {
+        const valueText = money(giftValue)
+        doc.text(valueText, 166, y - 3, { align: 'right' })
+        const w = doc.getTextWidth(valueText)
+        doc.setDrawColor('#92400E')
+        doc.line(166 - w, y - 4, 166, y - 4)
+      }
+      doc.setFont('helvetica', 'bold')
+      doc.text('FREE', right - 4, y - 3, { align: 'right' })
+      y += 6
+    }
     doc.setDrawColor('#e8eaed')
     doc.line(left, y - 3, right, y - 3)
   })

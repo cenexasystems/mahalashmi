@@ -14,6 +14,9 @@ export interface ThermalReceiptData {
     unit?: string
     price: number
     line_total?: number
+    /** Free gift with this item: printed with its value, not added to the total */
+    special_offer_note?: string | null
+    special_offer_cost?: number | null
   }>
   subtotal: number
   shipping: number
@@ -152,6 +155,12 @@ export function printThermalReceipt(data: ThermalReceiptData) {
                   <td class="text-right">${item.qty}</td>
                   <td class="text-right">${formatCurrency(lineTotal)}</td>
                 </tr>
+                ${item.special_offer_note ? `
+                <tr>
+                  <td class="text-left" style="font-size: 10px;">🎁 FREE GIFT: ${item.special_offer_note}${Number(item.special_offer_cost) > 0 ? ` <s>${formatCurrency(Number(item.special_offer_cost))}</s>` : ''}</td>
+                  <td class="text-right">1</td>
+                  <td class="text-right" style="font-weight: bold;">FREE</td>
+                </tr>` : ''}
               `
             }).join('')}
           </tbody>

@@ -45,8 +45,9 @@ const RMIcon = ({ size = 16, className = '' }: { size?: number; className?: stri
   </svg>
 )
 import { useAuthStore, useProductStore, type Product } from '../store/store'
-import { formatCurrency, normalizeOrderMode, toNumber } from '../lib/retail'
+import { formatInvoiceNo, formatCurrency, normalizeOrderMode, toNumber } from '../lib/retail'
 import { getPresetRange, startOfWeekMonday, toLocalDateStr } from '../lib/dateRanges'
+import { csvDate, csvPhone, toCsv } from '../lib/csv'
 
 type BillingOrder = {
   id: string
@@ -156,28 +157,26 @@ const exportCSV = (orders: BillingOrder[]) => {
         ? 'ONLINE'
         : 'OFFLINE'
     return [
-      order.invoice_no || '—',
+      order.invoice_no ? formatInvoiceNo(order.invoice_no) : '—',
       order.customer_name,
-      order.phone,
+      csvPhone(order.phone),
       billType,
       order.coupon_code || '',
       toNumber(order.discount_amount, 0).toFixed(2),
       toNumber(order.delivery_charge, 0).toFixed(2),
       toNumber(order.total, 0).toFixed(2),
-      new Date(order.created_at).toLocaleDateString('en-IN'),
+      csvDate(order.created_at, true),
       order.status,
     ]
   })
 
-  const csv = [header, ...rows]
-    .map((row) => row.map((value) => `"${String(value).replace(/"/g, '""')}"`).join(','))
-    .join('\n')
+  const csv = toCsv([header, ...rows])
 
   const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' })
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url
-  a.download = `billing_analytics_${new Date().toISOString().slice(0, 10)}.csv`
+  a.download = `billing_analytics_${toLocalDateStr(new Date())}.csv`
   a.click()
   URL.revokeObjectURL(url)
 }
@@ -369,15 +368,25 @@ export default function BillingAnalytics() {
       .reduce((sum, order) => sum + toNumber(order.total, 0), 0)
 
     const completedIds = new Set(billableCompleted.map((order) => order.id))
-    const completedItems = orderItems.length > 0
-      ? orderItems.filter((item) => completedIds.has(item.order_id))
-      : completedOrders.flatMap((order) => parseOrderItems(order.items).map((row) => ({
-          order_id: order.id,
-          product_name: String((row as Record<string, unknown>).product_name || (row as Record<string, unknown>).name || 'Product'),
-          quantity: toNumber((row as Record<string, unknown>).quantity ?? (row as Record<string, unknown>).qty, 0),
-          line_total: toNumber((row as Record<string, unknown>).line_total ?? (row as Record<string, unknown>).lineTotal, 0),
-          is_manual: (row as Record<string, unknown>).is_manual === true || (row as Record<string, unknown>).source === 'manual',
-        })))
+    // Items saved on each counted bill; the older order_items table only for bills without them
+    const legacyItemsByOrder = new Map<string, typeof orderItems>()
+    orderItems.forEach((item) => {
+      if (!completedIds.has(item.order_id)) return
+      const list = legacyItemsByOrder.get(item.order_id) || []
+      list.push(item)
+      legacyItemsByOrder.set(item.order_id, list)
+    })
+    const completedItems = billableCompleted.flatMap((order) => {
+      const rows = parseOrderItems(order.items)
+      if (rows.length === 0) return legacyItemsByOrder.get(order.id) || []
+      return rows.map((row) => ({
+        order_id: order.id,
+        product_name: String((row as Record<string, unknown>).product_name || (row as Record<string, unknown>).name || 'Product'),
+        quantity: toNumber((row as Record<string, unknown>).quantity ?? (row as Record<string, unknown>).qty, 0),
+        line_total: toNumber((row as Record<string, unknown>).line_total ?? (row as Record<string, unknown>).lineTotal, 0),
+        is_manual: (row as Record<string, unknown>).is_manual === true || (row as Record<string, unknown>).source === 'manual',
+      }))
+    })
 
     const productMap = new Map<string, ProductSummary>()
     const productOrders = new Map<string, Set<string>>()

@@ -20,6 +20,9 @@ export type WhatsAppLineItem = {
   unitType: 'unit' | 'weight' | 'volume' | 'bundle'
   rate: number
   lineTotal: number
+  /** Free gift that comes with this item: shown, never added to the total */
+  giftNote?: string | null
+  giftValue?: number | null
 }
 
 export type BuildWhatsAppMessageInput = {
@@ -87,7 +90,8 @@ export const buildProfessionalWhatsAppMessage = (input: BuildWhatsAppMessageInpu
   const invoiceUrl = input.invoiceUrl || publicInvoiceUrl(input.invoiceNumber)
   const formattedNo = formatInvoiceNo(input.invoiceNumber)
   const itemsText = input.items && input.items.length > 0
-    ? input.items.map(item => `• ${item.name} (x${item.qty}) - ₹ ${Number(item.lineTotal || 0).toFixed(2)}`).join('\n')
+    ? input.items.map(item => `• ${item.name} (x${item.qty}) - ₹ ${Number(item.lineTotal || 0).toFixed(2)}` +
+        (item.giftNote ? `\n   🎁 FREE GIFT: ${item.giftNote}${Number(item.giftValue) > 0 ? ` (worth ₹ ${Number(item.giftValue).toFixed(2)})` : ''} - FREE` : '')).join('\n')
     : ''
 
   const dueDateText = input.creditDueDate

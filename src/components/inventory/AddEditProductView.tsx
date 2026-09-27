@@ -37,6 +37,32 @@ export interface VariantInputRow {
   costPrice: number
   stock: number
   customBarcode?: string
+  /** YYYY-MM-DD; each pack size can have its own batch dates */
+  mfgDate?: string
+  expiryDate?: string
+}
+
+/** Saves a pack size's batch dates. Works before the mfg_date column exists (then saves expiry only). */
+async function saveVariantDates(variantId: string, row: VariantInputRow) {
+  const expiry_date = row.expiryDate || null
+  const mfg_date = row.mfgDate || null
+  const { error } = await supabase.from('product_variants').update({ expiry_date, mfg_date }).eq('id', variantId)
+  if (error && /mfg_date/i.test(error.message || '')) {
+    await supabase.from('product_variants').update({ expiry_date }).eq('id', variantId)
+  } else if (error) {
+    console.error('[AddEditProductView] saving pack size dates failed:', error)
+  }
+}
+
+/** Loads batch dates for pack sizes (falls back to expiry only before mfg_date exists). */
+async function loadVariantDates(productId: string): Promise<Map<string, { mfgDate: string; expiryDate: string }>> {
+  const out = new Map<string, { mfgDate: string; expiryDate: string }>()
+  let res = await supabase.from('product_variants').select('id, expiry_date, mfg_date').eq('product_id', productId)
+  if (res.error) res = await supabase.from('product_variants').select('id, expiry_date').eq('product_id', productId) as typeof res
+  for (const r of (res.data || []) as Array<{ id: string; expiry_date?: string | null; mfg_date?: string | null }>) {
+    out.set(String(r.id), { mfgDate: String(r.mfg_date || '').slice(0, 10), expiryDate: String(r.expiry_date || '').slice(0, 10) })
+  }
+  return out
 }
 
 // Extracts the leading number from a stored size label (e.g. "20gm" -> "20") so
@@ -193,7 +219,7 @@ export const AddEditProductView: React.FC<{ onStockUpdated?: () => void }> = ({ 
 
     if (p.hasVariants) {
       try {
-        const vars = await fetchVariantsByProduct(String(p.id))
+        const [vars, dates] = await Promise.all([fetchVariantsByProduct(String(p.id)), loadVariantDates(String(p.id))])
         setVariantRows(
           vars.map((v) => ({
             id: v.id,
@@ -202,6 +228,8 @@ export const AddEditProductView: React.FC<{ onStockUpdated?: () => void }> = ({ 
             costPrice: v.purchasePrice || 0,
             stock: v.stock || 0,
             customBarcode: v.barcode || '',
+            mfgDate: dates.get(String(v.id))?.mfgDate || '',
+            expiryDate: dates.get(String(v.id))?.expiryDate || '',
           }))
         )
       } catch (err) {
@@ -224,6 +252,8 @@ export const AddEditProductView: React.FC<{ onStockUpdated?: () => void }> = ({ 
         costPrice: baseC,
         stock: 0,
         customBarcode: '',
+        mfgDate: '',
+        expiryDate: '',
       },
     ])
   }
@@ -284,6 +314,10 @@ export const AddEditProductView: React.FC<{ onStockUpdated?: () => void }> = ({ 
     const labelForQty = (qty: string) => `${qty.trim()}${selectedUnit.suffix}`
 
     const firstVariant = variantRows.find((v) => v.qty.trim())
+    // With pack sizes, the product carries the earliest batch dates so Expiry Alerts flags it in time
+    const earliest = (dates: Array<string | undefined>) => dates.filter(Boolean).sort()[0] || ''
+    const productExpiry = hasVariants ? earliest(variantRows.map((v) => v.expiryDate)) || expiryDate : expiryDate
+    const productMfg = hasVariants ? earliest(variantRows.map((v) => v.mfgDate)) || mfgDate : mfgDate
     const priceNum = hasVariants && firstVariant ? (Number(firstVariant.price) || 0) : (parseFloat(price) || 0)
     const costNum = hasVariants && firstVariant ? (Number(firstVariant.costPrice) || 0) : (parseFloat(purchasePrice) || 0)
 
@@ -359,8 +393,8 @@ export const AddEditProductView: React.FC<{ onStockUpdated?: () => void }> = ({ 
               unit_label: selectedUnit.unit,
               unit: selectedUnit.unit,
               low_stock_alert: alertThreshold,
-              expiry_date: expiryDate || null,
-              mfg_date: mfgDate || null,
+              expiry_date: productExpiry || null,
+              mfg_date: productMfg || null,
               location: location.trim() || null,
               barcode: barcode.trim() || null,
               description: description.trim() || '',
@@ -448,6 +482,7 @@ export const AddEditProductView: React.FC<{ onStockUpdated?: () => void }> = ({ 
                 .single()
 
               if (!vErr && createdVar) {
+                await saveVariantDates(String(createdVar.id), v)
                 if (normalizeBarcode(v.customBarcode)) {
                   const { error: regErr } = await supabase.from('barcode_registry').upsert(
                     {
@@ -499,6 +534,7 @@ export const AddEditProductView: React.FC<{ onStockUpdated?: () => void }> = ({ 
                   barcode: v.customBarcode?.trim() || null,
                 })
                 .eq('id', v.id)
+              await saveVariantDates(v.id, v)
 
               if (normalizeBarcode(v.customBarcode)) {
                 const newVariantBarcodeValue = normalizeBarcode(v.customBarcode)
@@ -553,8 +589,8 @@ export const AddEditProductView: React.FC<{ onStockUpdated?: () => void }> = ({ 
               unit_label: selectedUnit.unit,
               unit: selectedUnit.unit,
               low_stock_alert: alertThreshold,
-              expiry_date: expiryDate || null,
-              mfg_date: mfgDate || null,
+              expiry_date: productExpiry || null,
+              mfg_date: productMfg || null,
               location: location.trim() || null,
               barcode: null,
               description: description.trim() || '',
@@ -594,8 +630,8 @@ export const AddEditProductView: React.FC<{ onStockUpdated?: () => void }> = ({ 
               unit_label: selectedUnit.unit,
               unit: selectedUnit.unit,
               low_stock_alert: alertThreshold,
-              expiry_date: expiryDate || null,
-              mfg_date: mfgDate || null,
+              expiry_date: productExpiry || null,
+              mfg_date: productMfg || null,
               location: location.trim() || null,
               barcode: barcode.trim() || null,
               description: description.trim() || '',
@@ -670,8 +706,8 @@ export const AddEditProductView: React.FC<{ onStockUpdated?: () => void }> = ({ 
               unit_label: selectedUnit.unit,
               unit: selectedUnit.unit,
               low_stock_alert: alertThreshold,
-              expiry_date: expiryDate || null,
-              mfg_date: mfgDate || null,
+              expiry_date: productExpiry || null,
+              mfg_date: productMfg || null,
               location: location.trim() || null,
               barcode: null,
               description: description.trim() || '',
@@ -710,6 +746,7 @@ export const AddEditProductView: React.FC<{ onStockUpdated?: () => void }> = ({ 
               })
               .select('id')
               .single()
+            if (createdVar) await saveVariantDates(String(createdVar.id), v)
 
             if (createdVar && normalizeBarcode(v.customBarcode)) {
               const { error: regErr } = await supabase.from('barcode_registry').upsert(
@@ -1187,7 +1224,7 @@ export const AddEditProductView: React.FC<{ onStockUpdated?: () => void }> = ({ 
 
                           <div className="sm:col-span-2">
                             <label className="block text-[10px] font-bold text-gray-600 mb-0.5">
-                              Price (₹)
+                              Selling Price (₹)
                             </label>
                             <input
                               type="number"
@@ -1203,7 +1240,7 @@ export const AddEditProductView: React.FC<{ onStockUpdated?: () => void }> = ({ 
 
                           <div className="sm:col-span-2">
                             <label className="block text-[10px] font-bold text-gray-600 mb-0.5">
-                              Cost (₹)
+                              Cost Price (₹)
                             </label>
                             <input
                               type="number"
@@ -1253,6 +1290,25 @@ export const AddEditProductView: React.FC<{ onStockUpdated?: () => void }> = ({ 
                             >
                               <Trash2 size={14} />
                             </button>
+                          </div>
+
+                          <div className="sm:col-span-6">
+                            <label className="block text-[10px] font-bold text-gray-600 mb-0.5">Mfg Date</label>
+                            <DateInputDDMMYYYY
+                              value={v.mfgDate || ''}
+                              onChange={(val) => handleUpdateVariantRow(v.id, 'mfgDate', val)}
+                              placeholder="DD/MM/YYYY"
+                              className={DATE_INPUT_CLASS}
+                            />
+                          </div>
+                          <div className="sm:col-span-6">
+                            <label className="block text-[10px] font-bold text-gray-600 mb-0.5">Expiry Date</label>
+                            <DateInputDDMMYYYY
+                              value={v.expiryDate || ''}
+                              onChange={(val) => handleUpdateVariantRow(v.id, 'expiryDate', val)}
+                              placeholder="DD/MM/YYYY"
+                              className={DATE_INPUT_CLASS}
+                            />
                           </div>
                         </div>
                       ))}
@@ -1339,6 +1395,11 @@ export const AddEditProductView: React.FC<{ onStockUpdated?: () => void }> = ({ 
                         />
                       </div>
 
+                      {hasVariants ? (
+                      <p className="sm:col-span-2 self-end pb-2.5 text-[11px] font-semibold text-gray-500">
+                        Mfg and expiry dates are set for each pack size above.
+                      </p>
+                      ) : (<>
                       <div>
                         <label className="block text-[11px] font-bold text-gray-700 mb-1.5 h-4 flex items-center">
                           Mfg Date
@@ -1375,6 +1436,7 @@ export const AddEditProductView: React.FC<{ onStockUpdated?: () => void }> = ({ 
                           className={DATE_INPUT_CLASS}
                         />
                       </div>
+                      </>)}
                     </div>
 
                     {/* Description */}

@@ -188,8 +188,11 @@ export const Invoice: React.FC<InvoiceProps> = ({
           <tbody>
             {items.map((item, idx) => {
               const normalized = normalizeStructuredOrderItem(item as unknown as Record<string, unknown>)
+              const giftNote = String(normalized.special_offer_note || item.special_offer_note || '').trim()
+              const giftValue = Number(normalized.special_offer_cost ?? item.special_offer_cost) || 0
               return (
-                <tr key={idx} style={{ borderBottom: '1px solid #f0f0f0' }}>
+                <React.Fragment key={idx}>
+                <tr style={{ borderBottom: giftNote ? 'none' : '1px solid #f0f0f0' }}>
                   <td style={{ padding: '10px 8px', fontSize: 11, color: '#999', verticalAlign: 'top' }}>{idx + 1}</td>
                   <td style={{ padding: '10px 8px', verticalAlign: 'top' }}>
                     <div style={{ fontSize: 12, fontWeight: 700, color: '#0A0A0A' }}>{normalized.name}</div>
@@ -199,17 +202,21 @@ export const Invoice: React.FC<InvoiceProps> = ({
                     <div style={{ fontSize: 10, color: '#6b7280', marginTop: 2 }}>
                       {normalized.unit} · {formatCurrency(normalized.base_price)}
                     </div>
-                    {(normalized.special_offer_note || item.special_offer_note) && (
-                      <div style={{ fontSize: 10, fontWeight: 700, color: '#92400E', background: '#FFFBEB', border: '1px solid #FDE68A', borderRadius: 6, padding: '2px 6px', marginTop: 4, display: 'inline-block' }}>
-                        🎁 {normalized.special_offer_note || item.special_offer_note}
-                        {(normalized.special_offer_cost ?? item.special_offer_cost) ? ` (Cost ₹${normalized.special_offer_cost ?? item.special_offer_cost})` : ''}
-                      </div>
-                    )}
                   </td>
                   <td style={{ padding: '10px 8px', fontSize: 12, fontWeight: 600, textAlign: 'center', verticalAlign: 'top' }}>{formatQuantityDisplay(normalized.quantity, normalized.unit, normalized.unit_type)}</td>
                   <td style={{ padding: '10px 8px', fontSize: 12, fontWeight: 600, textAlign: 'right', verticalAlign: 'top', color: '#555' }}>{formatCurrency(normalized.base_price)}</td>
                   <td style={{ padding: '10px 8px', fontSize: 13, fontWeight: 800, textAlign: 'right', verticalAlign: 'top', color: '#0A0A0A' }}>{formatCurrency(normalized.line_total)}</td>
                 </tr>
+                {giftNote && (
+                  <tr style={{ borderBottom: '1px solid #f0f0f0', background: '#FFFBEB' }}>
+                    <td />
+                    <td style={{ padding: '6px 8px', fontSize: 11, fontWeight: 800, color: '#92400E' }}>🎁 FREE GIFT: {giftNote}</td>
+                    <td style={{ padding: '6px 8px', fontSize: 11, fontWeight: 600, textAlign: 'center', color: '#92400E' }}>1</td>
+                    <td style={{ padding: '6px 8px', fontSize: 11, textAlign: 'right', color: '#92400E', textDecoration: giftValue > 0 ? 'line-through' : 'none' }}>{giftValue > 0 ? formatCurrency(giftValue) : '—'}</td>
+                    <td style={{ padding: '6px 8px', fontSize: 12, fontWeight: 900, textAlign: 'right', color: '#92400E' }}>FREE</td>
+                  </tr>
+                )}
+                </React.Fragment>
               )
             })}
           </tbody>

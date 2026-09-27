@@ -895,6 +895,8 @@ export default function Pos(props: PosProps = {}) {
         unitType: item.unitType,
         rate: Number(item.basePrice) || 0,
         lineTotal: item.lineTotal,
+        giftNote: item.specialOfferNote,
+        giftValue: item.specialOfferCost,
       })),
       subtotal: inv.subtotal,
       couponDiscount: inv.couponDiscount,
@@ -916,7 +918,7 @@ export default function Pos(props: PosProps = {}) {
         customerName: inv.customerName,
         phone: inv.phone,
         address: inv.address,
-        items: inv.items.map(item => ({ name: item.name, qty: item.qty, unit: item.selectedUnit, price: Number(item.basePrice) || 0, line_total: item.lineTotal })),
+        items: inv.items.map(item => ({ name: item.name, qty: item.qty, unit: item.selectedUnit, price: Number(item.basePrice) || 0, line_total: item.lineTotal, special_offer_note: item.specialOfferNote, special_offer_cost: item.specialOfferCost })),
         subtotal: inv.subtotal,
         shipping: inv.shipping,
         discountAmount: inv.couponDiscount,
@@ -944,7 +946,7 @@ export default function Pos(props: PosProps = {}) {
       date: inv.date,
       customerName: inv.customerName,
       phone: inv.phone,
-      items: inv.items.map(item => ({ name: item.name, qty: item.qty, unit: item.selectedUnit, price: Number(item.basePrice) || 0, line_total: item.lineTotal })),
+      items: inv.items.map(item => ({ name: item.name, qty: item.qty, unit: item.selectedUnit, price: Number(item.basePrice) || 0, line_total: item.lineTotal, special_offer_note: item.specialOfferNote, special_offer_cost: item.specialOfferCost })),
       subtotal: inv.subtotal,
       shipping: inv.shipping,
       couponDiscount: inv.couponDiscount,
@@ -1043,8 +1045,8 @@ export default function Pos(props: PosProps = {}) {
                   </div>
                   {item.specialOfferNote && (
                     <p className="mt-0.5 text-[11px] font-bold text-amber-800 break-words">
-                      🎁 {item.specialOfferNote}
-                      {item.specialOfferCost != null && item.specialOfferCost > 0 ? ` (Cost ₹${item.specialOfferCost})` : ''}
+                      🎁 FREE GIFT: {item.specialOfferNote}
+                      {item.specialOfferCost != null && item.specialOfferCost > 0 ? <> — <s>₹{item.specialOfferCost}</s></> : ''} FREE
                     </p>
                   )}
                 </div>
