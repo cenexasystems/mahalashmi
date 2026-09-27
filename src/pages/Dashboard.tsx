@@ -101,6 +101,13 @@ type ProfileUser = { id: string; email: string; name: string; mobile: string; ro
 
 const normalizeStatus = (v: unknown) => String(v || '').trim().toLowerCase()
 const normalizeOrderType = (v: unknown) => String(v || '').trim().toLowerCase() || 'pos_sale'
+const formatPhoneWithCountryCode = (phone: string) => {
+  const cleaned = String(phone || '').replace(/\D/g, '')
+  if (cleaned.startsWith('91') && cleaned.length === 12) {
+    return { code: '+91', number: cleaned.slice(2) }
+  }
+  return { code: '+91', number: cleaned.slice(-10) }
+}
 const isCompletedStatus = (v: unknown) => {
   const status = normalizeStatus(v)
   return status === 'completed' || status === 'paid'
@@ -1936,7 +1943,10 @@ export default function Dashboard() {
                           <React.Fragment key={order.id}>
                             <tr className={`hover:bg-blue-50/40 align-middle ${isExpanded ? 'bg-blue-50/30' : ''}`}>
                               <td className="px-4 py-3 font-bold text-[#111111] whitespace-nowrap">{order.customer_name || '-'}</td>
-                              <td className="px-4 py-3 text-[#374151] whitespace-nowrap">{order.phone || '-'}</td>
+                              <td className="px-4 py-3 text-[#374151] whitespace-nowrap text-[12px]">
+                                <span className="font-semibold text-[#111111]">{formatPhoneWithCountryCode(order.phone).code}</span>
+                                <span className="ml-1">{formatPhoneWithCountryCode(order.phone).number}</span>
+                              </td>
                               <td className="px-4 py-3 text-[#7A846F] max-w-[140px] break-words" title={order.address || '-'}>{order.address || '-'}</td>
                               <td className="px-4 py-3 text-center">
                                 <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-blue-100 text-blue-700 text-[11px] font-black">{its.length}</span>
@@ -3090,7 +3100,10 @@ export default function Dashboard() {
                               <span className="mt-1 block w-fit rounded-full bg-amber-50 px-1.5 py-0.5 text-[9px] font-black uppercase text-amber-700 border border-amber-200">Credit Bill</span>
                             )}
                           </td>
-                          <td className="whitespace-nowrap px-2 py-3 text-[11px] text-[#374151]">{o.phone}</td>
+                          <td className="whitespace-nowrap px-2 py-3 text-[11px] text-[#374151]">
+                            <span className="font-semibold text-[#111111]">{formatPhoneWithCountryCode(o.phone).code}</span>
+                            <span className="ml-1">{formatPhoneWithCountryCode(o.phone).number}</span>
+                          </td>
                           <td className="px-2 py-3"><span className={`px-1.5 py-0.5 rounded-full text-[9px] font-black uppercase ${billTypeClass}`}>{billTypeLabel}</span></td>
                           <td className="px-2 py-3 text-[11px]">
                             {o.coupon_code ? <span className="rounded bg-emerald-50 px-1.5 py-0.5 text-[10px] font-bold text-emerald-700">{o.coupon_code}</span> : <span className="text-[#9BAB9A]">—</span>}
