@@ -116,9 +116,12 @@ export const AdjustStockModal: React.FC<AdjustStockModalProps> = ({
     setSubmitting(true)
 
     try {
+      const uuidRegex = /^[0-9a-f]{8}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-f]{12}$/i
+      const variantId = item.variant_id && uuidRegex.test(item.variant_id) ? item.variant_id : null
+
       await inventoryService.adjustStock({
         product_id: item.product_id,
-        variant_id: item.variant_id || null,
+        variant_id: variantId,
         new_quantity: effectiveNewStock,
         reason: effectiveReason,
         note: note.trim() || undefined,
@@ -329,43 +332,43 @@ export const AdjustStockModal: React.FC<AdjustStockModalProps> = ({
             {mode === 'REMOVE' && (
               <div className="space-y-2.5 bg-rose-50/60 border border-rose-200 p-3 sm:p-3.5 rounded-xl">
                 {/* Removal Reason Sub-picker */}
-                <div>
-                  <label className="block text-[11px] font-black uppercase tracking-wider text-rose-900 mb-1">
+                <div className="space-y-1.5">
+                  <label className="block text-[11px] font-black uppercase tracking-wider text-rose-900">
                     Removal Reason <span className="text-red-500">*</span>
                   </label>
-                  <div className="grid grid-cols-3 gap-1.5">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-1 sm:gap-1.5">
                     <button
                       type="button"
                       onClick={() => setRemoveReason('DAMAGE')}
-                      className={`py-1.5 px-1.5 rounded-lg text-[11px] font-black border transition-all ${
+                      className={`py-1.5 px-1 sm:px-1.5 rounded-lg text-[10px] sm:text-[11px] font-black border transition-all whitespace-nowrap ${
                         removeReason === 'DAMAGE'
                           ? 'bg-rose-600 text-white border-rose-600 shadow-sm'
                           : 'bg-white text-rose-900 border-rose-200 hover:bg-rose-100'
                       }`}
                     >
-                      Damaged / Defect
+                      Damaged
                     </button>
                     <button
                       type="button"
                       onClick={() => setRemoveReason('RETURN')}
-                      className={`py-1.5 px-1.5 rounded-lg text-[11px] font-black border transition-all ${
+                      className={`py-1.5 px-1 sm:px-1.5 rounded-lg text-[10px] sm:text-[11px] font-black border transition-all whitespace-nowrap ${
                         removeReason === 'RETURN'
                           ? 'bg-rose-600 text-white border-rose-600 shadow-sm'
                           : 'bg-white text-rose-900 border-rose-200 hover:bg-rose-100'
                       }`}
                     >
-                      Vendor Return
+                      Return
                     </button>
                     <button
                       type="button"
                       onClick={() => setRemoveReason('CORRECTION')}
-                      className={`py-1.5 px-1.5 rounded-lg text-[11px] font-black border transition-all ${
+                      className={`py-1.5 px-1 sm:px-1.5 rounded-lg text-[10px] sm:text-[11px] font-black border transition-all whitespace-nowrap col-span-2 sm:col-span-1 ${
                         removeReason === 'CORRECTION'
                           ? 'bg-rose-600 text-white border-rose-600 shadow-sm'
                           : 'bg-white text-rose-900 border-rose-200 hover:bg-rose-100'
                       }`}
                     >
-                      Lost / Shrinkage
+                      Lost/Shrink
                     </button>
                   </div>
                 </div>

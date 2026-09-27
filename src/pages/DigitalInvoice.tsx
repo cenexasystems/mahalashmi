@@ -79,6 +79,17 @@ export default function DigitalInvoice() {
 
           row = tableResult.data
 
+          // Fallback: search orders by invoice_no being NULL or matching partial number
+          if (!row) {
+            const numPart = strippedIdentifier || cleanIdentifier || identifier
+            const { data: allOrders } = await supabase
+              .from('orders')
+              .select('*')
+              .or(`invoice_no.ilike.%${numPart}%,id.ilike.%${numPart}%`)
+              .limit(1)
+            row = Array.isArray(allOrders) && allOrders.length > 0 ? allOrders[0] : null
+          }
+
           if (!row && isUuid(identifier)) {
             const { data: idData } = await supabase
               .from('orders')

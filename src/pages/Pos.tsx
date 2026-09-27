@@ -1820,14 +1820,14 @@ export default function Pos(props: PosProps = {}) {
 
       {depositOpen && (
         <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/55 p-4">
-          <form onSubmit={saveDepositOrder} className="max-h-[94vh] w-full max-w-lg overflow-y-auto rounded-3xl bg-white p-6 shadow-2xl">
-            <div className="mb-5 flex items-start justify-between gap-3">
+          <form onSubmit={saveDepositOrder} className="max-h-[94vh] w-full max-w-lg overflow-y-auto rounded-3xl bg-white p-6 shadow-2xl flex flex-col">
+            <div className="sticky top-0 z-10 bg-white -mx-6 px-6 pt-0 pb-5 mb-5 flex items-start justify-between gap-3 border-b border-gray-100">
               <div>
                 <p className="text-[11px] font-black uppercase tracking-[.16em] text-violet-600">Advance payment only</p>
                 <h3 className="text-xl font-black text-[#111111]">Save as Deposit Order</h3>
                 <p className="mt-1 text-xs font-semibold text-amber-700">No sale or tax invoice will be created now.</p>
               </div>
-              <button type="button" onClick={() => { setDepositOpen(false); setError('') }} className="rounded-lg p-1 text-gray-500 hover:bg-gray-100"><X size={20}/></button>
+              <button type="button" onClick={() => { setDepositOpen(false); setError('') }} className="rounded-lg p-1 text-gray-500 hover:bg-gray-100 shrink-0"><X size={20}/></button>
             </div>
             <div className="mb-4 rounded-2xl bg-violet-50 p-4">
               <div className="flex justify-between text-sm"><span className="font-bold text-violet-700">Order total</span><span className="font-black text-violet-900">{formatCurrency(total)}</span></div>
