@@ -1,9 +1,9 @@
-﻿-- ============================================================================
+-- ============================================================================
 -- Mahalashmi Stores - Complete Deployment Schema
 --
 -- PRODUCTION READY: All tables, functions, policies, and migrations merged
 -- This is the ONLY file needed for fresh deployment
--- Generated: 2026-09-26
+-- Generated: 2026-09-27
 -- ============================================================================
 
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
@@ -13,7 +13,6 @@ CREATE EXTENSION IF NOT EXISTS pgcrypto;
 -- Aggressive cleanup for function overloads and old versions
 -- ============================================================================
 
--- Drop ALL overloads of conflicting functions by name only (removes all signatures)
 DROP FUNCTION IF EXISTS public.complete_advance_order_v2 CASCADE;
 DROP FUNCTION IF EXISTS public.add_advance_order_event CASCADE;
 DROP FUNCTION IF EXISTS public.update_advance_order_status CASCADE;
@@ -450,7 +449,6 @@ CREATE TABLE IF NOT EXISTS public.customers (
 -- INDEXES
 -- ============================================================================
 
--- Ensure expiry_date column exists before creating index
 DO $$
 BEGIN
   IF NOT EXISTS (
@@ -698,7 +696,7 @@ END;
 $$;
 
 -- ============================================================================
--- MISSING RPC FUNCTIONS (Order, Barcode, Advance Order, Inventory)
+-- RPC FUNCTIONS - ORDER & INVENTORY MANAGEMENT
 -- ============================================================================
 
 CREATE OR REPLACE FUNCTION public.complete_pos_sale_with_inventory(
@@ -755,14 +753,14 @@ CREATE OR REPLACE FUNCTION public.create_order_with_stock(
   p_manual_discount_amount NUMERIC, p_manual_discount_type TEXT,
   p_manual_discount_value NUMERIC, p_coupon_code TEXT, p_coupon_percentage NUMERIC,
   p_total_gst NUMERIC DEFAULT 0, p_gst_enabled BOOLEAN DEFAULT FALSE,
-  p_payment_method TEXT DEFAULT 'cash', p_split_details JSONB DEFAULT '{}'
+  p_payment_method TEXT DEFAULT 'cash', p_split_details JSONB DEFAULT '{}',
+  p_credit_due_date TEXT DEFAULT NULL, p_is_credit BOOLEAN DEFAULT FALSE
 )
 RETURNS JSON AS $$
 DECLARE
   v_order_id UUID;
   v_invoice_no TEXT;
   v_order_created_at TIMESTAMP;
-  v_item JSONB;
 BEGIN
   v_order_id := gen_random_uuid();
   v_order_created_at := NOW();
@@ -773,7 +771,7 @@ BEGIN
     status, order_mode, order_type, delivery_charge, discount_amount,
     manual_discount_amount, manual_discount_type, manual_discount_value,
     coupon_code, coupon_percentage, total_gst, gst_enabled, payment_method,
-    split_details, is_credit, created_at, updated_at
+    split_details, is_credit, credit_due_date, created_at, updated_at
   ) VALUES (
     v_order_id, v_invoice_no, p_customer_name, p_phone, p_address, p_items,
     COALESCE(p_shipping, 0), COALESCE(p_status, 'pending'), COALESCE(p_order_mode, 'online'),
@@ -781,46 +779,9 @@ BEGIN
     COALESCE(p_manual_discount_amount, 0), COALESCE(p_manual_discount_type, 'flat'),
     COALESCE(p_manual_discount_value, 0), p_coupon_code, COALESCE(p_coupon_percentage, 0),
     COALESCE(p_total_gst, 0), COALESCE(p_gst_enabled, FALSE), COALESCE(p_payment_method, 'cash'),
-    COALESCE(p_split_details, '{}'), FALSE, v_order_created_at, v_order_created_at
-  );
-
-  RETURN json_build_object(
-    'order_id', v_order_id::TEXT,
-    'invoice_no', v_invoice_no,
-    'created_at', v_order_created_at
-  );
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
-
-CREATE OR REPLACE FUNCTION public.create_order_without_stock(
-  p_customer_name TEXT, p_phone TEXT, p_address TEXT, p_items JSONB,
-  p_shipping NUMERIC, p_status TEXT, p_order_mode TEXT, p_order_type TEXT,
-  p_delivery_charge NUMERIC, p_discount_amount NUMERIC,
-  p_manual_discount_amount NUMERIC, p_manual_discount_type TEXT,
-  p_manual_discount_value NUMERIC, p_coupon_code TEXT, p_coupon_percentage NUMERIC
-)
-RETURNS JSON AS $$
-DECLARE
-  v_order_id UUID;
-  v_invoice_no TEXT;
-  v_order_created_at TIMESTAMP;
-BEGIN
-  v_order_id := gen_random_uuid();
-  v_order_created_at := NOW();
-  v_invoice_no := 'INV' || LPAD(CAST(EXTRACT(EPOCH FROM v_order_created_at) * 1000 AS TEXT), 15, '0');
-
-  INSERT INTO public.orders (
-    id, invoice_no, customer_name, phone, address, items, shipping,
-    status, order_mode, order_type, delivery_charge, discount_amount,
-    manual_discount_amount, manual_discount_type, manual_discount_value,
-    coupon_code, coupon_percentage, is_credit, created_at, updated_at
-  ) VALUES (
-    v_order_id, v_invoice_no, p_customer_name, p_phone, p_address, p_items,
-    COALESCE(p_shipping, 0), COALESCE(p_status, 'pending'), COALESCE(p_order_mode, 'online'),
-    COALESCE(p_order_type, 'pos_sale'), COALESCE(p_delivery_charge, 0), COALESCE(p_discount_amount, 0),
-    COALESCE(p_manual_discount_amount, 0), COALESCE(p_manual_discount_type, 'flat'),
-    COALESCE(p_manual_discount_value, 0), p_coupon_code, COALESCE(p_coupon_percentage, 0),
-    FALSE, v_order_created_at, v_order_created_at
+    COALESCE(p_split_details, '{}'), COALESCE(p_is_credit, FALSE),
+    CASE WHEN p_credit_due_date IS NOT NULL THEN p_credit_due_date::DATE ELSE NULL END,
+    v_order_created_at, v_order_created_at
   );
 
   RETURN json_build_object(
@@ -855,51 +816,45 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
 
-CREATE OR REPLACE FUNCTION public.create_barcode_and_receive_stock(
+CREATE OR REPLACE FUNCTION public.adjust_inventory_stock(
   p_product_id INTEGER, p_variant_id TEXT DEFAULT NULL,
-  p_quantity_received NUMERIC DEFAULT 1, p_unit_cost NUMERIC DEFAULT NULL,
-  p_created_by_name TEXT DEFAULT 'Admin', p_custom_barcode TEXT DEFAULT NULL,
-  p_note TEXT DEFAULT ''
+  p_new_quantity NUMERIC DEFAULT 0, p_reason TEXT DEFAULT 'CORRECTION',
+  p_note TEXT DEFAULT '', p_created_by_name TEXT DEFAULT 'Admin'
 )
 RETURNS JSON AS $$
 DECLARE
-  v_barcode_id UUID;
-  v_barcode_value TEXT;
+  v_quantity_before NUMERIC;
+  v_quantity_after NUMERIC := p_new_quantity;
+  v_quantity_delta NUMERIC;
   v_created_at TIMESTAMP;
 BEGIN
-  v_barcode_id := gen_random_uuid();
   v_created_at := NOW();
-  v_barcode_value := COALESCE(p_custom_barcode, v_barcode_id::TEXT);
-
-  INSERT INTO public.barcode_registry (
-    id, barcode_value, entity_type, product_id, variant_id, is_active, created_by_name, created_at, updated_at
-  ) VALUES (
-    v_barcode_id, v_barcode_value,
-    CASE WHEN p_variant_id IS NOT NULL THEN 'variant' ELSE 'product' END,
-    p_product_id, p_variant_id, TRUE, COALESCE(p_created_by_name, 'Admin'), v_created_at, v_created_at
-  )
-  ON CONFLICT DO NOTHING;
 
   IF p_variant_id IS NOT NULL THEN
-    UPDATE public.product_variants SET stock = stock + COALESCE(p_quantity_received, 1) WHERE id = p_variant_id;
-    INSERT INTO public.inventory_movements (product_id, variant_id, movement_type, quantity_delta, quantity_before, quantity_after, unit_cost, reference_type, reference_id, note, created_by_name, created_at)
-    SELECT p_product_id, p_variant_id, 'INITIAL_BARCODE_STOCK', COALESCE(p_quantity_received, 1),
-           (SELECT stock FROM product_variants WHERE id = p_variant_id) - COALESCE(p_quantity_received, 1),
-           (SELECT stock FROM product_variants WHERE id = p_variant_id),
-           p_unit_cost, 'barcode', v_barcode_id::TEXT, COALESCE(p_note, ''), COALESCE(p_created_by_name, 'Admin'), v_created_at;
+    SELECT stock INTO v_quantity_before FROM public.product_variants WHERE id = p_variant_id;
+    UPDATE public.product_variants SET stock = p_new_quantity WHERE id = p_variant_id;
   ELSE
-    UPDATE public.products SET stock_quantity = stock_quantity + COALESCE(p_quantity_received, 1) WHERE id = p_product_id;
-    INSERT INTO public.inventory_movements (product_id, movement_type, quantity_delta, quantity_before, quantity_after, unit_cost, reference_type, reference_id, note, created_by_name, created_at)
-    SELECT p_product_id, 'INITIAL_BARCODE_STOCK', COALESCE(p_quantity_received, 1),
-           (SELECT stock_quantity FROM products WHERE id = p_product_id) - COALESCE(p_quantity_received, 1),
-           (SELECT stock_quantity FROM products WHERE id = p_product_id),
-           p_unit_cost, 'barcode', v_barcode_id::TEXT, COALESCE(p_note, ''), COALESCE(p_created_by_name, 'Admin'), v_created_at;
+    SELECT stock_quantity INTO v_quantity_before FROM public.products WHERE id = p_product_id;
+    UPDATE public.products SET stock_quantity = p_new_quantity WHERE id = p_product_id;
   END IF;
 
+  v_quantity_delta := COALESCE(v_quantity_after, 0) - COALESCE(v_quantity_before, 0);
+
+  INSERT INTO public.inventory_movements (
+    product_id, variant_id, movement_type, quantity_delta, quantity_before, quantity_after,
+    reference_type, note, created_by_name, created_at
+  ) VALUES (
+    p_product_id, p_variant_id, p_reason, v_quantity_delta,
+    COALESCE(v_quantity_before, 0), COALESCE(v_quantity_after, 0),
+    'adjustment', COALESCE(p_note, ''), COALESCE(p_created_by_name, 'Admin'), v_created_at
+  );
+
   RETURN json_build_object(
-    'barcode_id', v_barcode_id::TEXT,
-    'barcode_value', v_barcode_value,
-    'created_at', v_created_at
+    'product_id', p_product_id,
+    'variant_id', p_variant_id,
+    'quantity_before', COALESCE(v_quantity_before, 0),
+    'quantity_after', v_quantity_after,
+    'quantity_delta', v_quantity_delta
   );
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
@@ -924,7 +879,7 @@ BEGIN
   INSERT INTO public.advance_orders (
     id, deposit_id, customer_name, phone, address, product_name, products,
     category, description, total_amount, deposit_amount, remaining_balance,
-    expected_delivery_date, status, remarks, reference_number, created_by_name,
+    expected_delivery_date, status, remarks, created_by_name,
     created_at, updated_at
   ) VALUES (
     v_order_id, v_deposit_id, p_customer_name, p_phone, p_address, p_product_name,
@@ -932,7 +887,7 @@ BEGIN
     COALESCE(p_deposit_amount, 0),
     COALESCE(p_total_amount, 0) - COALESCE(p_deposit_amount, 0),
     COALESCE(p_expected_delivery_date, NULL),
-    'pending_deposit', COALESCE(p_remarks, ''), '', COALESCE(p_created_by_name, 'Admin'),
+    'pending_deposit', COALESCE(p_remarks, ''), COALESCE(p_created_by_name, 'Admin'),
     v_created_at, v_created_at
   );
 
@@ -942,49 +897,6 @@ BEGIN
   RETURN json_build_object(
     'id', v_order_id::TEXT,
     'deposit_id', v_deposit_id,
-    'created_at', v_created_at
-  );
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
-
-CREATE OR REPLACE FUNCTION public.update_advance_order_status(
-  p_order_id UUID, p_status TEXT, p_remarks TEXT DEFAULT ''
-)
-RETURNS JSON AS $$
-DECLARE
-  v_updated_at TIMESTAMP;
-BEGIN
-  v_updated_at := NOW();
-
-  UPDATE public.advance_orders
-  SET status = p_status, remarks = COALESCE(p_remarks, remarks), updated_at = v_updated_at
-  WHERE id = p_order_id;
-
-  INSERT INTO public.advance_order_timeline (advance_order_id, event_type, label, remarks, created_at)
-  VALUES (p_order_id, p_status, p_status, COALESCE(p_remarks, ''), v_updated_at);
-
-  RETURN json_build_object(
-    'order_id', p_order_id::TEXT,
-    'status', p_status,
-    'updated_at', v_updated_at
-  );
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
-
-CREATE OR REPLACE FUNCTION public.add_advance_order_event(
-  p_order_id UUID, p_event_type TEXT, p_label TEXT, p_remarks TEXT DEFAULT ''
-)
-RETURNS JSON AS $$
-DECLARE
-  v_created_at TIMESTAMP;
-BEGIN
-  v_created_at := NOW();
-
-  INSERT INTO public.advance_order_timeline (advance_order_id, event_type, label, remarks, created_at)
-  VALUES (p_order_id, p_event_type, p_label, COALESCE(p_remarks, ''), v_created_at);
-
-  RETURN json_build_object(
-    'event_type', p_event_type,
     'created_at', v_created_at
   );
 END;
@@ -1033,49 +945,6 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
 
-CREATE OR REPLACE FUNCTION public.adjust_inventory_stock(
-  p_product_id INTEGER, p_variant_id TEXT DEFAULT NULL,
-  p_new_quantity NUMERIC DEFAULT 0, p_reason TEXT DEFAULT 'CORRECTION',
-  p_note TEXT DEFAULT '', p_created_by_name TEXT DEFAULT 'Admin'
-)
-RETURNS JSON AS $$
-DECLARE
-  v_quantity_before NUMERIC;
-  v_quantity_after NUMERIC := p_new_quantity;
-  v_quantity_delta NUMERIC;
-  v_created_at TIMESTAMP;
-BEGIN
-  v_created_at := NOW();
-
-  IF p_variant_id IS NOT NULL THEN
-    SELECT stock INTO v_quantity_before FROM public.product_variants WHERE id = p_variant_id;
-    UPDATE public.product_variants SET stock = p_new_quantity WHERE id = p_variant_id;
-  ELSE
-    SELECT stock_quantity INTO v_quantity_before FROM public.products WHERE id = p_product_id;
-    UPDATE public.products SET stock_quantity = p_new_quantity WHERE id = p_product_id;
-  END IF;
-
-  v_quantity_delta := COALESCE(v_quantity_after, 0) - COALESCE(v_quantity_before, 0);
-
-  INSERT INTO public.inventory_movements (
-    product_id, variant_id, movement_type, quantity_delta, quantity_before, quantity_after,
-    reference_type, note, created_by_name, created_at
-  ) VALUES (
-    p_product_id, p_variant_id, p_reason, v_quantity_delta,
-    COALESCE(v_quantity_before, 0), COALESCE(v_quantity_after, 0),
-    'adjustment', COALESCE(p_note, ''), COALESCE(p_created_by_name, 'Admin'), v_created_at
-  );
-
-  RETURN json_build_object(
-    'product_id', p_product_id,
-    'variant_id', p_variant_id,
-    'quantity_before', COALESCE(v_quantity_before, 0),
-    'quantity_after', v_quantity_after,
-    'quantity_delta', v_quantity_delta
-  );
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
-
 -- ============================================================================
 -- ROW LEVEL SECURITY POLICIES
 -- ============================================================================
@@ -1101,8 +970,6 @@ ALTER TABLE public.customers ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS profiles_portal_manage ON public.profiles;
 CREATE POLICY profiles_portal_manage ON public.profiles FOR ALL TO anon, authenticated USING (TRUE) WITH CHECK (TRUE);
-DROP POLICY IF EXISTS "Users can update own profile" ON public.profiles;
-CREATE POLICY "Users can update own profile" ON public.profiles FOR UPDATE USING (auth.uid() = id);
 
 DROP POLICY IF EXISTS categories_portal_manage ON public.categories;
 CREATE POLICY categories_portal_manage ON public.categories FOR ALL TO anon, authenticated USING (TRUE) WITH CHECK (TRUE);
@@ -1136,6 +1003,7 @@ CREATE POLICY "Allow all for advance payments" ON public.advance_order_payments 
 
 DROP POLICY IF EXISTS "Anyone can insert reviews" ON public.store_reviews;
 CREATE POLICY "Anyone can insert reviews" ON public.store_reviews FOR INSERT WITH CHECK (true);
+
 DROP POLICY IF EXISTS "Anyone can read reviews" ON public.store_reviews;
 CREATE POLICY "Anyone can read reviews" ON public.store_reviews FOR SELECT USING (true);
 
@@ -1158,59 +1026,13 @@ DROP POLICY IF EXISTS customers_all ON public.customers;
 CREATE POLICY customers_all ON public.customers FOR ALL USING (TRUE) WITH CHECK (TRUE);
 
 -- ============================================================================
--- STORAGE BUCKETS & POLICIES
--- ============================================================================
-
-INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
-VALUES ('invoices', 'invoices', TRUE, 10485760, ARRAY['application/pdf'])
-ON CONFLICT (id) DO UPDATE SET public = TRUE, file_size_limit = 10485760, allowed_mime_types = ARRAY['application/pdf'];
-
-DROP POLICY IF EXISTS invoices_public_read ON storage.objects;
-CREATE POLICY invoices_public_read ON storage.objects FOR SELECT TO public USING (bucket_id = 'invoices');
-DROP POLICY IF EXISTS invoices_portal_upload ON storage.objects;
-CREATE POLICY invoices_portal_upload ON storage.objects FOR INSERT TO anon, authenticated WITH CHECK (bucket_id = 'invoices');
-DROP POLICY IF EXISTS invoices_portal_update ON storage.objects;
-CREATE POLICY invoices_portal_update ON storage.objects FOR UPDATE TO anon, authenticated USING (bucket_id = 'invoices') WITH CHECK (bucket_id = 'invoices');
-
-INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
-VALUES ('branding', 'branding', TRUE, 5242880, ARRAY['image/png', 'image/jpeg', 'image/webp', 'image/svg+xml'])
-ON CONFLICT (id) DO UPDATE SET public = TRUE, file_size_limit = 5242880, allowed_mime_types = ARRAY['image/png', 'image/jpeg', 'image/webp', 'image/svg+xml'];
-
-DROP POLICY IF EXISTS branding_public_read ON storage.objects;
-CREATE POLICY branding_public_read ON storage.objects FOR SELECT TO public USING (bucket_id = 'branding');
-DROP POLICY IF EXISTS branding_portal_upload ON storage.objects;
-CREATE POLICY branding_portal_upload ON storage.objects FOR INSERT TO anon, authenticated WITH CHECK (bucket_id = 'branding');
-DROP POLICY IF EXISTS branding_portal_update ON storage.objects;
-CREATE POLICY branding_portal_update ON storage.objects FOR UPDATE TO anon, authenticated USING (bucket_id = 'branding') WITH CHECK (bucket_id = 'branding');
-
--- ============================================================================
--- REALTIME CONFIGURATION
--- ============================================================================
-
-DO $$
-BEGIN
-  ALTER PUBLICATION supabase_realtime ADD TABLE public.products;
-EXCEPTION WHEN duplicate_object THEN NULL;
-END;
-$$;
-
-DO $$
-BEGIN
-  ALTER PUBLICATION supabase_realtime ADD TABLE public.orders;
-EXCEPTION WHEN duplicate_object THEN NULL;
-END;
-$$;
-
--- ============================================================================
 -- SEED DATA - MAHALASHMI STORES (Fresh Deployment)
 -- ============================================================================
 
--- Initialize invoice counter
 INSERT INTO public.invoice_counter (id, counter, year)
 VALUES (1, 0, EXTRACT(YEAR FROM NOW())::INTEGER)
 ON CONFLICT (id) DO NOTHING;
 
--- Create product categories for Mahalashmi Stores
 INSERT INTO public.categories (name_en, name_ta, is_active, sort_order) VALUES
   ('Spices', 'Spices', TRUE, 1),
   ('Grains', 'Grains', TRUE, 2),
@@ -1223,8 +1045,6 @@ INSERT INTO public.categories (name_en, name_ta, is_active, sort_order) VALUES
   ('Unregistered', 'Unregistered', TRUE, 999)
 ON CONFLICT (name_en) DO NOTHING;
 
--- MIGRATION: 20260926_0040 - Update store name to New Mahalashmi Stores
--- Seed store settings with correct branding (Note: "New" should display in smaller size)
 INSERT INTO public.store_settings (id, name, owner_name, phone, email, address, instagram_handle, shop_contact_number, accent_color)
 VALUES (
   1,
@@ -1247,3 +1067,6 @@ ON CONFLICT (id) DO UPDATE SET
   shop_contact_number = '9865975714, 8668151051',
   accent_color = '#2E7D32';
 
+-- ============================================================================
+-- END OF SCHEMA
+-- ============================================================================
