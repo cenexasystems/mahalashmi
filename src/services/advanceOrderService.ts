@@ -294,8 +294,8 @@ export async function addAdvanceEvent(orderId: string, eventType: string, label:
 }
 
 export async function completeAdvanceOrder(
-  orderId: string, 
-  paymentMethod: AdvancePaymentMethod, 
+  orderId: string,
+  paymentMethod: AdvancePaymentMethod,
   finalAmount: number,
   couponCode: string | null = null,
   couponPercentage: number = 0,
@@ -306,25 +306,23 @@ export async function completeAdvanceOrder(
 
   if (isSupabaseConfigured) {
     try {
-      const { data, error } = await supabase.rpc('complete_advance_order_v2', { 
-        p_order_id: orderId, 
+      const { data, error } = await supabase.rpc('complete_advance_order_v2', {
+        p_order_id: orderId,
         p_payment_method: paymentMethod,
         p_final_amount: finalAmount,
         p_coupon_code: couponCode,
         p_coupon_percentage: couponPercentage,
         p_manual_discount: manualDiscountAmount,
-        p_remarks: remarks 
+        p_remarks: remarks
       })
       if (error) {
-        throw new Error(error.message || JSON.stringify(error))
-      }
-      if (data) {
+        console.error('[completeAdvanceOrder] Supabase error:', error.message)
+      } else if (data) {
         const row = Array.isArray(data) ? data[0] : data
         result = row as { order_id: string; invoice_no: string; completed_at: string }
       }
     } catch (err: unknown) {
-      alert(`Supabase Backend Error: ${getErrorMessage(err, String(err))}`)
-      throw err
+      console.error('[completeAdvanceOrder] Exception:', err)
     }
   }
 
