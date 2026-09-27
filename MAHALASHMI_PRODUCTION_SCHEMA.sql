@@ -916,7 +916,7 @@ DECLARE
 BEGIN
   v_completed_order_id := gen_random_uuid();
   v_completed_at := NOW();
-  v_invoice_no := 'INV' || LPAD(CAST(EXTRACT(EPOCH FROM v_completed_at) * 1000 AS TEXT), 15, '0');
+  v_invoice_no := 'INV' || LPAD(CAST(FLOOR(EXTRACT(EPOCH FROM v_completed_at) * 1000) AS BIGINT)::TEXT, 15, '0');
 
   SELECT * INTO v_advance_order FROM public.advance_orders WHERE id = p_order_id;
 

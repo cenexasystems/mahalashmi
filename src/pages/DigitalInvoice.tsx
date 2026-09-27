@@ -101,7 +101,11 @@ export default function DigitalInvoice() {
 
           // Check advance_orders table for invoices (advance orders create invoices differently)
           if (!row) {
-            const tryAdvanceTable = async (invNo: string) => supabase.from('advance_orders').select('*').eq('invoice_number', invNo).maybeSingle()
+            const tryAdvanceTable = async (invNo: string) => supabase
+              .from('advance_orders')
+              .select('*')
+              .or(`invoice_number.ilike.%${invNo}%,completed_order_id.eq.${invNo}`)
+              .maybeSingle()
 
             let advanceResult = await tryAdvanceTable(identifier)
             if (!advanceResult.data && strippedIdentifier && strippedIdentifier !== identifier) {
