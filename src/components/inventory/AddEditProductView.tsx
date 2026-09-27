@@ -799,22 +799,23 @@ export const AddEditProductView: React.FC<{ onStockUpdated?: () => void }> = ({ 
       <div className="flex-1 flex flex-col lg:flex-row gap-5 min-h-0 overflow-hidden">
       {/* LEFT COLUMN: Products Browser List */}
       <div className={`${mobileView === 'form' ? 'hidden lg:flex' : 'flex'} w-full lg:w-80 xl:w-96 flex-col bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-sm shrink-0 h-full min-h-0`}>
-        <div className="p-3.5 border-b border-gray-200 bg-[#FAFAFA] shrink-0">
-          <h4 className="text-xs font-bold text-gray-800">
+        <div className="px-4 py-3.5 border-b border-gray-200 bg-[#FAFAFA] shrink-0">
+          <h4 className="flex items-center gap-2 text-sm font-black text-gray-900">
+            <Package size={16} className="text-[var(--accent)]" />
             Product Catalog ({products.length})
           </h4>
-          <p className="text-[10px] text-gray-500 mt-0.5">Select any item to view or edit product details</p>
+          <p className="text-[11px] text-gray-500 mt-0.5">Select any item to view or edit product details</p>
         </div>
 
-        <div className="p-3 border-b border-gray-100 bg-[#FBFAF6] shrink-0">
+        <div className="p-3 border-b border-gray-100 bg-white shrink-0">
           <div className="relative">
-            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+            <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
             <input
               type="text"
               placeholder="Search products, SKUs, barcode..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-8 pr-3 py-1.5 rounded-lg border border-gray-300 bg-white text-xs font-bold text-gray-900 outline-none focus:border-[#0A0A0A]"
+              className="w-full h-10 pl-9 pr-3 rounded-xl border border-gray-200 bg-white text-xs sm:text-sm font-semibold text-gray-900 outline-none focus:border-[#0A0A0A]"
             />
           </div>
         </div>
@@ -825,64 +826,58 @@ export const AddEditProductView: React.FC<{ onStockUpdated?: () => void }> = ({ 
               No products found.
             </div>
           ) : (
-            <table className="w-full text-left">
-              <thead className="sticky top-0 bg-[#FAFAFA] text-[9px] font-black uppercase tracking-wider text-gray-500">
-                <tr>
-                  <th className="px-3.5 py-2">Product</th>
-                  <th className="px-2 py-2 text-right">Price</th>
-                  <th className="px-2 py-2 text-right">Stock</th>
-                  <th className="w-14 px-1 py-2"></th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {filteredProducts.map((p) => (
-                  <tr
+            <ul className="divide-y divide-gray-100">
+              {filteredProducts.map((p) => {
+                const stockQty = Number(p.stockQuantity ?? p.stock ?? 0)
+                const lowAt = Number(p.lowStockAlert ?? 5)
+                const stockColor = stockQty <= 0 ? 'text-red-600' : stockQty <= lowAt ? 'text-amber-600' : 'text-emerald-700'
+                const isSelected = selectedProductId === Number(p.id)
+                return (
+                  <li
                     key={p.id}
                     onClick={() => startEditProduct(p)}
-                    className={`group cursor-pointer hover:bg-[#FBFAF6] transition-colors ${
-                      selectedProductId === Number(p.id) ? 'bg-[#FFF9E6] border-l-4 border-[var(--accent)]' : ''
+                    className={`flex items-center gap-3 px-4 py-3.5 cursor-pointer transition-colors border-l-4 ${
+                      isSelected ? 'bg-[#FFF9E6] border-[var(--accent)]' : 'border-transparent hover:bg-[#FBFAF6]'
                     }`}
                   >
-                    <td className="max-w-[140px] whitespace-normal break-words px-3.5 py-2.5 align-top">
-                      <div className="font-bold text-xs text-gray-900 break-words">{p.name}</div>
-                      <div className="text-[10px] text-gray-400 font-medium">
-                        {p.category || 'General'} {p.hasVariants ? '• Multiple pack sizes' : ''}
+                    <div className="min-w-0 flex-1">
+                      <div className="text-[13px] font-black uppercase text-gray-900 break-words leading-snug">{p.name}</div>
+                      <div className="mt-0.5 text-[11px] font-semibold uppercase text-gray-500 truncate">
+                        {p.category || 'General'}{p.hasVariants ? ' • Multiple pack sizes' : ''}
                       </div>
-                    </td>
-                    <td className="px-2 py-2.5 text-right align-top font-black text-xs text-gray-900 whitespace-nowrap">₹{p.price}</td>
-                    <td className="px-2 py-2.5 text-right align-top text-[10px] text-emerald-700 font-bold whitespace-nowrap">
-                      {p.stockQuantity ?? p.stock ?? 0}
-                    </td>
-                    <td className="px-1 py-2.5 align-top">
-                      <div className="flex items-center justify-end gap-1">
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            void startEditProduct(p)
-                          }}
-                          className="p-1 rounded-md border border-gray-200 text-gray-500 hover:text-[var(--accent)] hover:border-[var(--accent)] hover:bg-[#EAF6EC] transition-all cursor-pointer"
-                          title={`Edit "${p.name}"`}
-                        >
-                          <Pencil size={13} />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            handleDeleteProduct(Number(p.id), p.name)
-                          }}
-                          className="p-1 rounded-md text-gray-400 hover:text-red-600 hover:bg-red-50 transition-all cursor-pointer"
-                          title={`Delete "${p.name}"`}
-                        >
-                          <Trash2 size={13} />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                    </div>
+                    <div className="shrink-0 text-right">
+                      <div className="text-sm font-black text-gray-900 whitespace-nowrap">₹{p.price}</div>
+                      <div className={`text-[11px] font-black whitespace-nowrap ${stockColor}`}>Stock: {stockQty}</div>
+                    </div>
+                    <div className="shrink-0 flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          void startEditProduct(p)
+                        }}
+                        className="w-8 h-8 rounded-lg border border-gray-200 bg-white text-gray-600 flex items-center justify-center hover:text-[var(--accent)] hover:border-[var(--accent)] transition-all cursor-pointer"
+                        title={`Edit "${p.name}"`}
+                      >
+                        <Pencil size={14} />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          handleDeleteProduct(Number(p.id), p.name)
+                        }}
+                        className="w-8 h-8 rounded-lg text-gray-400 flex items-center justify-center hover:text-red-600 hover:bg-red-50 transition-all cursor-pointer"
+                        title={`Delete "${p.name}"`}
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                  </li>
+                )
+              })}
+            </ul>
           )}
         </div>
       </div>

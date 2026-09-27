@@ -5,6 +5,7 @@ import type { CustomerRecord } from '../../services/customerService'
 import { useEventOfferSettings } from '../../lib/eventOfferSettings'
 import { toWhatsAppUrl } from '../../lib/phone'
 import EventOfferPanel from './EventOfferPanel'
+import { getPresetRange, yearlyDateInRange, type RangePreset } from '../../lib/dateRanges'
 
 type PageType = 'calendar' | 'customers'
 
@@ -16,6 +17,31 @@ export default function BirthdayView() {
   const [currentYear, setCurrentYear] = useState(new Date().getFullYear())
   const [filterFromDate, setFilterFromDate] = useState('')
   const [filterToDate, setFilterToDate] = useState('')
+  const [filterPreset, setFilterPreset] = useState<RangePreset | ''>('')
+  const applyFilterPreset = (preset: RangePreset | '') => {
+    setFilterPreset(preset)
+    if (!preset) { setFilterFromDate(''); setFilterToDate(''); return }
+    const { from, to } = getPresetRange(preset)
+    setFilterFromDate(from)
+    setFilterToDate(to)
+  }
+  // Today / This Week (Mon–Sun) / This Month (1st–last day) / This Year (1 Jan–31 Dec)
+  const presetButtons = (
+    <div className="mb-2 flex flex-wrap gap-1">
+      {([['today', 'Today'], ['week', 'This Week'], ['month', 'This Month'], ['year', 'This Year'], ['', 'All']] as const).map(([key, label]) => (
+        <button
+          key={label}
+          type="button"
+          onClick={() => applyFilterPreset(key)}
+          className={`rounded-lg px-2 py-1 text-[10px] font-bold transition-colors ${
+            filterPreset === key ? 'bg-[#2E7D32] text-white' : 'bg-[#F3F4F6] text-[#374151] hover:bg-[#E5E7EB]'
+          }`}
+        >
+          {label}
+        </button>
+      ))}
+    </div>
+  )
   const offerSettings = useEventOfferSettings('birthday')
 
   React.useEffect(() => {
@@ -52,10 +78,8 @@ export default function BirthdayView() {
       .filter(c => c.birthday)
       .filter(c => {
         if (!filterFromDate && !filterToDate) return true
-        const d = new Date(`${c.birthday}T00:00:00`)
-        if (filterFromDate && d < new Date(filterFromDate)) return false
-        if (filterToDate && d > new Date(filterToDate)) return false
-        return true
+        // Match on day + month within the chosen dates (the stored year is the original year)
+        return yearlyDateInRange(c.birthday, filterFromDate, filterToDate)
       })
   }
 
@@ -181,14 +205,15 @@ export default function BirthdayView() {
 
             <div className="rounded-2xl border border-[#E5E7EB] bg-white p-3">
               <h3 className="mb-2 font-bold text-xs text-[#273126]">Filter by date</h3>
+              {presetButtons}
               <div className="space-y-2">
                 <div>
                   <label className="block text-[9px] font-bold text-[#6B7280] mb-0.5">FROM</label>
-                  <input type="date" value={filterFromDate} onChange={(e) => setFilterFromDate(e.target.value)} className="w-full rounded-lg border border-[#E5E7EB] bg-white px-2 py-1.5 text-[10px] font-semibold" />
+                  <input type="date" value={filterFromDate} onChange={(e) => { setFilterFromDate(e.target.value); setFilterPreset('') }} className="w-full rounded-lg border border-[#E5E7EB] bg-white px-2 py-1.5 text-[10px] font-semibold" />
                 </div>
                 <div>
                   <label className="block text-[9px] font-bold text-[#6B7280] mb-0.5">TO</label>
-                  <input type="date" value={filterToDate} onChange={(e) => setFilterToDate(e.target.value)} className="w-full rounded-lg border border-[#E5E7EB] bg-white px-2 py-1.5 text-[10px] font-semibold" />
+                  <input type="date" value={filterToDate} onChange={(e) => { setFilterToDate(e.target.value); setFilterPreset('') }} className="w-full rounded-lg border border-[#E5E7EB] bg-white px-2 py-1.5 text-[10px] font-semibold" />
                 </div>
               </div>
             </div>
@@ -215,14 +240,15 @@ export default function BirthdayView() {
                 </button>
               )}
             </div>
+            {presetButtons}
             <div className="grid gap-3 sm:grid-cols-2">
               <div>
                 <label className="block text-xs font-bold text-[#6B7280] mb-1">FROM</label>
-                <input type="date" value={filterFromDate} onChange={(e) => setFilterFromDate(e.target.value)} className="w-full rounded-lg border border-[#E5E7EB] bg-white px-3 py-2 text-xs font-semibold" />
+                <input type="date" value={filterFromDate} onChange={(e) => { setFilterFromDate(e.target.value); setFilterPreset('') }} className="w-full rounded-lg border border-[#E5E7EB] bg-white px-3 py-2 text-xs font-semibold" />
               </div>
               <div>
                 <label className="block text-xs font-bold text-[#6B7280] mb-1">TO</label>
-                <input type="date" value={filterToDate} onChange={(e) => setFilterToDate(e.target.value)} className="w-full rounded-lg border border-[#E5E7EB] bg-white px-3 py-2 text-xs font-semibold" />
+                <input type="date" value={filterToDate} onChange={(e) => { setFilterToDate(e.target.value); setFilterPreset('') }} className="w-full rounded-lg border border-[#E5E7EB] bg-white px-3 py-2 text-xs font-semibold" />
               </div>
             </div>
           </div>

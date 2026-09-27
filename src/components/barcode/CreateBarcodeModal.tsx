@@ -20,6 +20,7 @@ import {
   getAllLabelSizes,
   renderBarcodeSvg,
   labelBarcodeHtml,
+  buildA4SheetPages,
 } from '../../lib/barcode'
 import { BRAND_EN, BRAND_MONOGRAM } from '../../lib/brand'
 import { barcodeService } from '../../services/barcodeService'
@@ -385,7 +386,10 @@ export const CreateBarcodeModal: React.FC<CreateBarcodeModalProps> = ({
         return
       }
 
-    const isThermal = settings.printerType === 'label'
+    // A4 label sheets always print as whole A4 pages, whatever printer type is chosen
+    const isSheet = currentSizeConfig.sheet === 'A4'
+    const isThermal = !isSheet && settings.printerType === 'label'
+    let sheetCss = ''
     const isSmall = currentSizeConfig.heightMm <= 25
     const isLarge = currentSizeConfig.heightMm >= 40
 
@@ -444,6 +448,10 @@ export const CreateBarcodeModal: React.FC<CreateBarcodeModalProps> = ({
         rows.push(`<div class="sticker-row">${rowStickers.join('')}</div>`)
       }
       bodyContent = rows.join('')
+    } else if (isSheet) {
+      const sheet = buildA4SheetPages(allStickers, currentSizeConfig)
+      bodyContent = sheet.html
+      sheetCss = sheet.css
     } else {
       // Regular A4 printer container
       bodyContent = `
@@ -464,9 +472,12 @@ export const CreateBarcodeModal: React.FC<CreateBarcodeModalProps> = ({
               ${
                 isThermal
                   ? `size: ${(currentSizeConfig.widthMm * columns + gapMm * (columns - 1)).toFixed(2)}mm ${currentSizeConfig.heightMm}mm; margin: 0mm !important; marks: none !important;`
-                  : `size: A4 portrait; margin: 10mm !important;`
+                  : isSheet
+                    ? `size: A4 portrait; margin: 0 !important;`
+                    : `size: A4 portrait; margin: 10mm !important;`
               }
             }
+            ${sheetCss}
             * {
               box-sizing: border-box;
               margin: 0;
@@ -515,7 +526,7 @@ export const CreateBarcodeModal: React.FC<CreateBarcodeModalProps> = ({
               break-inside: avoid !important;
               page-break-inside: avoid !important;
               background: #fff;
-              ${!isThermal ? 'border: 0.2mm dashed #bbb;' : ''}
+              ${!isThermal && !isSheet ? 'border: 0.2mm dashed #bbb;' : ''}
             }
             .header {
               font-size: ${headerFontSize};

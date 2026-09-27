@@ -13,22 +13,67 @@ export interface LabelSizeConfig {
   heightMm: number
   horizontalGapMm: number
   isCustom?: boolean
+  /** Die-cut label sheet printed on a normal printer as whole A4 pages (not a roll) */
+  sheet?: 'A4'
 }
 
 export const DEFAULT_LABEL_SIZES: LabelSizeConfig[] = [
+  { id: '1_35x22', name: '35 × 22 mm (Compact Tag)', labelsPerRow: 1, widthMm: 35, heightMm: 22, horizontalGapMm: 0 },
   { id: '2_38x25', name: '38 × 25 mm (Tag / Jewelry)', labelsPerRow: 1, widthMm: 38, heightMm: 25, horizontalGapMm: 0 },
   { id: '1_50x25', name: '50 × 25 mm (Standard Compact)', labelsPerRow: 1, widthMm: 50, heightMm: 25, horizontalGapMm: 0 },
   { id: '2_50x25', name: '50 × 38 mm (Retail Standard)', labelsPerRow: 1, widthMm: 50, heightMm: 38, horizontalGapMm: 0 },
   { id: '1_60x40', name: '60 × 40 mm (Shipping / Product)', labelsPerRow: 1, widthMm: 60, heightMm: 40, horizontalGapMm: 0 },
   { id: '1_100x50', name: '100 × 50 mm (Large Carton / Box)', labelsPerRow: 1, widthMm: 100, heightMm: 50, horizontalGapMm: 0 },
-  // 2-up roll candidates — exact single-label size unconfirmed, test-print on scrap
-  // paper first and delete whichever one doesn't match your physical roll.
-  { id: '2up_50x25', name: '50 × 25 mm × 2 (2-Up Roll, Candidate A)', labelsPerRow: 2, widthMm: 50, heightMm: 25, horizontalGapMm: 2 },
-  { id: '2up_50x30', name: '50 × 30 mm × 2 (2-Up Roll, Candidate B)', labelsPerRow: 2, widthMm: 50, heightMm: 30, horizontalGapMm: 2 },
-  // 3 labels side by side on one roll (e.g. TVS LP 46 Dlite): the page is the
-  // full 105 mm roll width, one row of 3 stickers per page.
-  { id: '3up_35x22', name: '35 × 22 mm × 3 (3-Up Roll, side-by-side)', labelsPerRow: 3, widthMm: 35, heightMm: 22, horizontalGapMm: 0 },
+  // Rolls with 2 or 3 labels side by side (e.g. TVS LP 46 Dlite): the page is the
+  // full roll width, one row of stickers per page.
+  { id: '2up_35x22', name: '35 × 22 mm × 2-Up (Roll, side-by-side)', labelsPerRow: 2, widthMm: 35, heightMm: 22, horizontalGapMm: 0 },
+  { id: '2up_50x25', name: '50 × 25 mm × 2-Up (Roll, side-by-side)', labelsPerRow: 2, widthMm: 50, heightMm: 25, horizontalGapMm: 2 },
+  { id: '3up_35x22', name: '35 × 22 mm × 3-Up (Roll, side-by-side)', labelsPerRow: 3, widthMm: 35, heightMm: 22, horizontalGapMm: 0 },
+  // A4 sheets of die-cut labels, printed on a normal printer
+  { id: 'a4_4x48x25', name: 'A4 Sheet — 4 columns × 48 × 25 mm', labelsPerRow: 4, widthMm: 48, heightMm: 25, horizontalGapMm: 2.5, sheet: 'A4' },
+  { id: 'a4_4x48x30', name: 'A4 Sheet — 4 columns × 48 × 30 mm', labelsPerRow: 4, widthMm: 48, heightMm: 30, horizontalGapMm: 2.5, sheet: 'A4' },
+  { id: 'a4_3x63x38', name: 'A4 Sheet — 3 columns × 63 × 38 mm', labelsPerRow: 3, widthMm: 63, heightMm: 38, horizontalGapMm: 2.5, sheet: 'A4' },
+  { id: 'a4_2x99x34', name: 'A4 Sheet — 2 columns × 99 × 34 mm (Address label)', labelsPerRow: 2, widthMm: 99, heightMm: 34, horizontalGapMm: 2.5, sheet: 'A4' },
 ]
+
+/**
+ * Lays stickers out on whole A4 pages for a label sheet: as many rows as fit,
+ * the grid centred on the page. This matches standard sheets closely (e.g. a
+ * 3 × 7 sheet of 63.5 × 38.1 mm labels has ~15 mm top and ~7 mm side margins).
+ */
+export function buildA4SheetPages(
+  stickers: string[],
+  size: Pick<LabelSizeConfig, 'labelsPerRow' | 'widthMm' | 'heightMm' | 'horizontalGapMm'>
+): { html: string; css: string } {
+  const cols = Math.max(1, size.labelsPerRow)
+  const gap = size.horizontalGapMm || 0
+  const rows = Math.max(1, Math.floor((297 - 10) / size.heightMm))
+  const perPage = cols * rows
+  const sideMm = Math.max(0, (210 - cols * size.widthMm - (cols - 1) * gap) / 2)
+  const topMm = Math.max(0, (297 - rows * size.heightMm) / 2)
+  const pages: string[] = []
+  for (let i = 0; i < stickers.length; i += perPage) {
+    pages.push(`<div class="a4-sheet-page">${stickers.slice(i, i + perPage).join('')}</div>`)
+  }
+  const css = `
+    .a4-sheet-page {
+      width: 210mm;
+      height: 297mm;
+      padding: ${topMm.toFixed(2)}mm ${sideMm.toFixed(2)}mm 0 ${sideMm.toFixed(2)}mm;
+      display: grid;
+      grid-template-columns: repeat(${cols}, ${size.widthMm}mm);
+      grid-auto-rows: ${size.heightMm}mm;
+      column-gap: ${gap}mm;
+      row-gap: 0;
+      align-content: start;
+      overflow: hidden;
+      break-after: page;
+      page-break-after: always;
+    }
+    .a4-sheet-page:last-child { break-after: auto; page-break-after: auto; }
+  `
+  return { html: pages.join(''), css }
+}
 
 export interface BarcodeSettings {
   printerType: 'label' | 'regular'

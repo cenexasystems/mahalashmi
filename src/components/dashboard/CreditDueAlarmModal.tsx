@@ -7,10 +7,9 @@ import { useAlarmQueueStore } from '../../store/alarmQueueStore'
 import { ModalPortal } from '../ModalPortal'
 
 /**
- * Mirrors ExpiryAlarmModal: fires its check on mount (i.e. right after
- * login) and again only when `triggerKey` becomes "history" or
- * "outstanding_credits". Flags any outstanding credit sale whose due date
- * has arrived or already passed.
+ * Checks only when the Outstanding Credits section is opened (triggerKey ===
+ * "outstanding_credits") - not on login and not on other pages. Flags any
+ * outstanding credit sale whose due date has arrived or already passed.
  */
 export default function CreditDueAlarmModal({ triggerKey }: { triggerKey?: string | number }) {
   const { soundEnabled } = useSound()
@@ -18,23 +17,21 @@ export default function CreditDueAlarmModal({ triggerKey }: { triggerKey?: strin
   const [settlingId, setSettlingId] = useState<string | null>(null)
   const intervalRef = useRef<number | null>(null)
   const audioCtxRef = useRef<AudioContext | null>(null)
-  const hasCheckedOnMount = useRef(false)
   const queue = useAlarmQueueStore(s => s.queue)
   const enqueueAlarm = useAlarmQueueStore(s => s.enqueue)
   const dequeueAlarm = useAlarmQueueStore(s => s.dequeue)
   const isFront = queue[0] === 'creditDue'
 
   useEffect(() => {
-    const isInitialMount = !hasCheckedOnMount.current
-    hasCheckedOnMount.current = true
-    if (!isInitialMount && triggerKey !== 'outstanding_credits' && triggerKey !== 'history') return
+    if (triggerKey !== 'outstanding_credits') return
 
     let cancelled = false
     const check = async () => {
       try {
         const outstanding = await creditService.fetchOutstandingCredits()
         if (cancelled) return
-        const due = outstanding.filter(o => o.daysOverdue >= 0)
+        // Only bills that have a due date, and it has arrived (today) or passed
+        const due = outstanding.filter(o => Boolean(o.credit_due_date) && o.daysOverdue >= 0)
         if (due.length > 0) {
           setItems(due)
           enqueueAlarm('creditDue')

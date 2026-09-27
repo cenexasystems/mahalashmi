@@ -171,10 +171,11 @@ export default function Pos(props: PosProps = {}) {
   const [referenceNumber, setReferenceNumber] = useState('')
   const [billingDate, setBillingDate] = useState('') // '' = use current date/time
   const [paymentType, setPaymentType] = useState<'cash' | 'qr' | 'card' | 'split' | 'credit'>('cash')
-  // Split payment: part cash + part QR or card
-  const [splitCash, setSplitCash] = useState('')
-  const [splitOther, setSplitOther] = useState('')
-  const [splitOtherMethod, setSplitOtherMethod] = useState<'qr' | 'card'>('qr')
+  // Split payment: two different methods (any two of cash / QR / card), each with its amount
+  const [splitCash, setSplitCash] = useState('') // amount of the first method
+  const [splitOther, setSplitOther] = useState('') // amount of the second method
+  const [splitFirstMethod, setSplitFirstMethod] = useState<'cash' | 'qr' | 'card'>('cash')
+  const [splitOtherMethod, setSplitOtherMethod] = useState<'cash' | 'qr' | 'card'>('qr')
   const [creditDueDate, setCreditDueDate] = useState('')
   const [saving, setSaving] = useState(false)
   const [shipping, setShipping] = useState<string>('0')
@@ -743,7 +744,7 @@ export default function Pos(props: PosProps = {}) {
     if (paymentType === 'cash' && !cashReceived.trim()) { setError('Enter the amount received from customer'); return }
     if (paymentType === 'cash' && cashReceivedNum < total) { setError(`Insufficient payment. Customer still owes ${formatCurrency(total - cashReceivedNum)}`); return }
     // Validate split payment: both parts entered and together equal the grand total
-    if (paymentType === 'split' && (splitCashNum <= 0 || splitOtherNum <= 0)) { setError('Enter both split amounts (cash and ' + (splitOtherMethod === 'qr' ? 'QR' : 'card') + ')'); return }
+    if (paymentType === 'split' && (splitCashNum <= 0 || splitOtherNum <= 0)) { setError(`Enter both split amounts (${formatPaymentMode(splitFirstMethod)} and ${formatPaymentMode(splitOtherMethod)})`); return }
     if (paymentType === 'split' && splitDiff !== 0) { setError(splitDiff > 0 ? `Split amounts are short by ${formatCurrency(splitDiff)}` : `Split amounts exceed the total by ${formatCurrency(-splitDiff)}`); return }
     // Validate credit due date
     if (paymentType === 'credit' && !creditDueDate.trim()) { setError('Select a due date for this credit sale'); return }
@@ -752,7 +753,7 @@ export default function Pos(props: PosProps = {}) {
     setSaving(true); setError('')
     try {
       const paymentMode = ordermode === 'online' ? 'online' : paymentType
-      const splitPaymentDetails = paymentMode === 'split' ? { cash: splitCashNum, [splitOtherMethod]: splitOtherNum } : {}
+      const splitPaymentDetails = paymentMode === 'split' ? { [splitFirstMethod]: splitCashNum, [splitOtherMethod]: splitOtherNum } : {}
       const created = await createOrderWithStock({
         customerName: customer.name.trim() || 'Walk-in Customer',
         phone: normalizedPhone,
@@ -1781,48 +1782,58 @@ export default function Pos(props: PosProps = {}) {
                 ) : paymentType === 'split' ? (
                 <div className="border border-gray-200 rounded-xl p-2.5 bg-white space-y-2">
                   <label className="block text-[10px] font-black text-[#374151] tracking-wider uppercase">
-                    Split Payment — Cash + {splitOtherMethod === 'qr' ? 'QR' : 'Card'} (₹)
+                    Split Payment — {formatPaymentMode(splitFirstMethod)} + {formatPaymentMode(splitOtherMethod)} (₹)
                   </label>
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <span className="block h-6 leading-6 text-[10px] font-black text-gray-500 uppercase">Cash</span>
-                      <input
-                        type="number" min="0" onWheel={(e) => (e.target as HTMLInputElement).blur()}
-                        value={splitCash}
-                        onChange={e => {
-                          const v = e.target.value
-                          setSplitCash(v)
-                          // Fill the other part with whatever is left of the total
-                          setSplitOther(v === '' ? '' : String(Math.max(0, Math.round((total - (Number(v) || 0)) * 100) / 100)))
-                        }}
-                        placeholder="0.00"
-                        className="w-full h-9 px-3 bg-[#FAFAFA] border border-gray-200 rounded-xl text-[13px] font-black text-[#111111] focus:outline-none focus:border-[var(--accent)]"
-                      />
-                    </div>
-                    <div>
-                      <div className="flex h-6 items-center gap-1">
-                        {(['qr', 'card'] as const).map(m => (
-                          <button
-                            key={m}
-                            type="button"
-                            onClick={() => setSplitOtherMethod(m)}
-                            className={`px-2 py-0.5 rounded-md text-[10px] font-black uppercase transition-colors ${
-                              splitOtherMethod === m ? 'bg-[#0A0A0A] text-[var(--accent)]' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                            }`}
-                          >
-                            {m === 'qr' ? 'QR' : 'Card'}
-                          </button>
-                        ))}
+                  {([
+                    { key: 'first', label: 'Payment 1', method: splitFirstMethod, amount: splitCash },
+                    { key: 'second', label: 'Payment 2', method: splitOtherMethod, amount: splitOther },
+                  ] as const).map(row => (
+                    <div key={row.key} className="grid grid-cols-[1fr_1fr] gap-2 items-end">
+                      <div>
+                        <span className="block text-[9px] font-black text-gray-500 uppercase mb-0.5">{row.label}</span>
+                        <div className="grid grid-cols-3 gap-1">
+                          {(['cash', 'qr', 'card'] as const).map(m => (
+                            <button
+                              key={m}
+                              type="button"
+                              onClick={() => {
+                                // The two parts must use different methods: picking the other side's method swaps them
+                                if (row.key === 'first') {
+                                  if (m === splitOtherMethod) setSplitOtherMethod(splitFirstMethod)
+                                  setSplitFirstMethod(m)
+                                } else {
+                                  if (m === splitFirstMethod) setSplitFirstMethod(splitOtherMethod)
+                                  setSplitOtherMethod(m)
+                                }
+                              }}
+                              className={`h-9 rounded-lg text-[10px] font-black uppercase transition-colors ${
+                                row.method === m ? 'bg-[#0A0A0A] text-[var(--accent)]' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                              }`}
+                            >
+                              {formatPaymentMode(m)}
+                            </button>
+                          ))}
+                        </div>
                       </div>
                       <input
                         type="number" min="0" onWheel={(e) => (e.target as HTMLInputElement).blur()}
-                        value={splitOther}
-                        onChange={e => setSplitOther(e.target.value)}
+                        value={row.amount}
+                        onChange={e => {
+                          const v = e.target.value
+                          if (row.key === 'first') {
+                            setSplitCash(v)
+                            // Fill the second part with whatever is left of the total
+                            setSplitOther(v === '' ? '' : String(Math.max(0, Math.round((total - (Number(v) || 0)) * 100) / 100)))
+                          } else {
+                            setSplitOther(v)
+                          }
+                        }}
                         placeholder="0.00"
+                        aria-label={`${row.label} amount`}
                         className="w-full h-9 px-3 bg-[#FAFAFA] border border-gray-200 rounded-xl text-[13px] font-black text-[#111111] focus:outline-none focus:border-[var(--accent)]"
                       />
                     </div>
-                  </div>
+                  ))}
                   {(splitCash !== '' || splitOther !== '') && (
                     <div className={`flex justify-between items-center px-3 py-1.5 rounded-lg border text-[10px] font-bold ${
                       splitDiff === 0 ? 'bg-emerald-50 border-emerald-200 text-emerald-800' : 'bg-red-50 border-red-200 text-red-700'

@@ -96,7 +96,7 @@ const saveLocalCategories = (cats: ExpenseCategory[]) => {
 }
 
 function calculateMetricsFromList(expenses: ExpenseRecord[]): ExpenseSummaryMetrics {
-  // Whole periods: week Monday–Saturday, month 1st–last day, year 1 Jan–31 Dec
+  // Whole periods: week Monday–Sunday, month 1st–last day, year 1 Jan–31 Dec
   const todayStr = toLocalDateStr(new Date())
   const week = getPresetRange('week')
   const month = getPresetRange('month')

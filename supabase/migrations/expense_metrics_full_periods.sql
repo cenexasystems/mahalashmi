@@ -1,6 +1,6 @@
 -- ============================================================================
 -- Expense Tracker cards use whole periods, like every date filter in the app:
---   This Week  = Monday to Saturday
+--   This Week  = Monday to Sunday
 --   This Month = 1st to the last day of the month
 --   This Year  = 1 January to 31 December
 -- (Before, each card stopped at today, so expenses dated later in the period
@@ -23,7 +23,7 @@ DECLARE
   v_this_year NUMERIC(12,2) := 0;
   v_total_all_time NUMERIC(12,2) := 0;
   v_week_start DATE := date_trunc('week', p_current_date)::DATE;          -- Monday
-  v_week_end DATE := (date_trunc('week', p_current_date) + INTERVAL '5 days')::DATE;  -- Saturday
+  v_week_end DATE := (date_trunc('week', p_current_date) + INTERVAL '6 days')::DATE;  -- Sunday
   v_month_start DATE := date_trunc('month', p_current_date)::DATE;
   v_month_end DATE := (date_trunc('month', p_current_date) + INTERVAL '1 month - 1 day')::DATE;
   v_year_start DATE := date_trunc('year', p_current_date)::DATE;
@@ -51,7 +51,7 @@ $$;
 
 NOTIFY pgrst, 'reload schema';
 
--- Result: this week's Monday..Saturday, this month and this year as used by the cards
+-- Result: this week's Monday..Sunday, this month and this year as used by the cards
 SELECT date_trunc('week', CURRENT_DATE)::DATE AS week_monday,
-       (date_trunc('week', CURRENT_DATE) + INTERVAL '5 days')::DATE AS week_saturday,
+       (date_trunc('week', CURRENT_DATE) + INTERVAL '6 days')::DATE AS week_sunday,
        (date_trunc('month', CURRENT_DATE) + INTERVAL '1 month - 1 day')::DATE AS month_last_day;

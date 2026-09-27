@@ -114,7 +114,7 @@ export default function AdvanceOrders({ onOrderCompleted }: AdvanceOrdersProps =
     if (statusFilter === 'completed' && order.status !== 'completed') return false
     if (statusFilter === 'cancelled' && order.status !== 'cancelled') return false
     if (dateFilter !== 'all') {
-      // Week = Monday–Saturday, Month = 1st–last day (shared ranges)
+      // Week = Monday–Sunday, Month = 1st–last day (shared ranges)
       if (!isInPreset(order.created_at, dateFilter)) return false
     }
     return true

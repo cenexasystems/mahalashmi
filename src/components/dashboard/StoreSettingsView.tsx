@@ -336,20 +336,20 @@ export default function StoreSettingsView({ onAddProduct }: StoreSettingsViewPro
             <div className="flex flex-col sm:flex-row sm:items-start gap-4">
               <div className="flex-1">
                 <Field label="Default Low Stock Threshold">
-                  <input
-                    type="number" min={0} step={1} className={inputCls}
+                  <NumberInput
+                    min={0} className={inputCls}
                     value={form.lowStockThreshold}
-                    onChange={e => setForm(f => ({ ...f, lowStockThreshold: Number(e.target.value) || 0 }))}
+                    onCommit={n => setForm(f => ({ ...f, lowStockThreshold: n }))}
                   />
                 </Field>
                 <p className="text-[11px] text-[#6B7280] mt-1.5">Triggers automatic alerts and banners when product stock reaches or drops below this count.</p>
               </div>
               <div className="flex-1">
                 <Field label="Expiry Alert Window (days)">
-                  <input
-                    type="number" min={1} step={1} className={inputCls}
+                  <NumberInput
+                    min={1} className={inputCls}
                     value={form.expiryAlertDays}
-                    onChange={e => setForm(f => ({ ...f, expiryAlertDays: Number(e.target.value) || 1 }))}
+                    onCommit={n => setForm(f => ({ ...f, expiryAlertDays: n }))}
                   />
                 </Field>
                 <p className="text-[11px] text-[#6B7280] mt-1.5">Products with an expiry date land in "Expiring Soon" once they're within this many days of it.</p>
@@ -450,5 +450,37 @@ function SectionCard({ icon: Icon, title, subtitle, children }: { icon: typeof S
       </div>
       {children}
     </div>
+  )
+}
+
+/**
+ * Whole-number box that can be cleared while typing. The number is selected on
+ * focus so the first key replaces it; an empty or invalid entry goes back to the
+ * last good value when the box is left.
+ */
+function NumberInput({ value, min, className, onCommit }: {
+  value: number
+  min: number
+  className?: string
+  onCommit: (n: number) => void
+}) {
+  const [text, setText] = useState(String(value))
+  useEffect(() => { setText(String(value)) }, [value])
+  return (
+    <input
+      type="number" inputMode="numeric" min={min} step={1} className={className}
+      value={text}
+      onFocus={e => e.target.select()}
+      onChange={e => {
+        const v = e.target.value
+        setText(v)
+        const n = Math.floor(Number(v))
+        if (v.trim() !== '' && Number.isFinite(n) && n >= min) onCommit(n)
+      }}
+      onBlur={() => {
+        const n = Math.floor(Number(text))
+        if (text.trim() === '' || !Number.isFinite(n) || n < min) setText(String(value))
+      }}
+    />
   )
 }

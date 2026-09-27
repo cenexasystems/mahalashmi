@@ -692,7 +692,7 @@ DECLARE
   v_this_year NUMERIC(12,2) := 0;
   v_total_all_time NUMERIC(12,2) := 0;
   v_week_start DATE := date_trunc('week', p_current_date)::DATE;          -- Monday
-  v_week_end DATE := (date_trunc('week', p_current_date) + INTERVAL '5 days')::DATE;  -- Saturday
+  v_week_end DATE := (date_trunc('week', p_current_date) + INTERVAL '6 days')::DATE;  -- Sunday
   v_month_start DATE := date_trunc('month', p_current_date)::DATE;
   v_month_end DATE := (date_trunc('month', p_current_date) + INTERVAL '1 month - 1 day')::DATE;
   v_year_start DATE := date_trunc('year', p_current_date)::DATE;

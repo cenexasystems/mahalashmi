@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom'
 import { X, Printer, Copy, Check } from 'lucide-react'
 import { BarcodeLabel } from './BarcodeLabel'
 import { BRAND_EN } from '../../lib/brand'
-import { getAllLabelSizes, labelBarcodeHtml, getStoredBarcodeSettings, saveStoredBarcodeSettings } from '../../lib/barcode'
+import { getAllLabelSizes, labelBarcodeHtml, buildA4SheetPages, getStoredBarcodeSettings, saveStoredBarcodeSettings } from '../../lib/barcode'
 import { ModalPortal } from '../ModalPortal'
 
 export interface BarcodePrintModalProps {
@@ -23,16 +23,18 @@ type LabelSizePreset = {
   heightMm: number
   labelsPerRow: number
   horizontalGapMm: number
+  sheet?: 'A4'
 }
 
 const getAvailablePresets = (): LabelSizePreset[] => {
   const sizes = getAllLabelSizes()
   return sizes.map((s) => ({
-    name: `${s.name} (${s.widthMm}mm × ${s.heightMm}mm${s.labelsPerRow > 1 ? ` × ${s.labelsPerRow} across` : ''})`,
+    name: s.sheet ? s.name : `${s.name} (${s.widthMm}mm × ${s.heightMm}mm${s.labelsPerRow > 1 ? ` × ${s.labelsPerRow} across` : ''})`,
     widthMm: s.widthMm,
     heightMm: s.heightMm,
     labelsPerRow: s.labelsPerRow || 1,
     horizontalGapMm: s.horizontalGapMm || 0,
+    sheet: s.sheet,
   }))
 }
 
@@ -103,7 +105,9 @@ export const BarcodePrintModal: React.FC<BarcodePrintModalProps> = ({
       }
 
       const fullTitle = `${productName}${variantName ? ` (${variantName})` : ''}`
-      const isThermal = printerType === 'label'
+      // A4 label sheets always print as whole A4 pages, whatever printer type is chosen
+      const isSheet = selectedPreset.sheet === 'A4'
+      const isThermal = !isSheet && printerType === 'label'
       const isSmall = selectedPreset.heightMm <= 25
       const isLarge = selectedPreset.heightMm >= 40
 
@@ -159,9 +163,12 @@ export const BarcodePrintModal: React.FC<BarcodePrintModalProps> = ({
     }
     const allStickersHtml = rows.join('')
 
-    const bodyContent = isThermal
-      ? allStickersHtml
-      : `<div class="a4-container">${allStickersHtml}</div>`
+    const sheet = isSheet ? buildA4SheetPages(Array.from({ length: totalStickers }, () => singleStickerHtml), selectedPreset) : null
+    const bodyContent = sheet
+      ? sheet.html
+      : isThermal
+        ? allStickersHtml
+        : `<div class="a4-container">${allStickersHtml}</div>`
 
     const html = `
       <!DOCTYPE html>
@@ -173,7 +180,9 @@ export const BarcodePrintModal: React.FC<BarcodePrintModalProps> = ({
               ${
                 isThermal
                   ? `size: ${(selectedPreset.widthMm * columns + gapMm * (columns - 1)).toFixed(2)}mm ${selectedPreset.heightMm}mm; margin: 0;`
-                  : `size: A4 portrait; margin: 10mm;`
+                  : isSheet
+                    ? `size: A4 portrait; margin: 0;`
+                    : `size: A4 portrait; margin: 10mm;`
               }
             }
             @media print {
@@ -195,6 +204,7 @@ export const BarcodePrintModal: React.FC<BarcodePrintModalProps> = ({
                   : ''
               }
             }
+            ${sheet ? sheet.css : ''}
             * {
               box-sizing: border-box;
               margin: 0;
@@ -244,7 +254,7 @@ export const BarcodePrintModal: React.FC<BarcodePrintModalProps> = ({
               box-sizing: border-box;
               flex-shrink: 0;
               background: #fff;
-              ${!isThermal ? 'border: 0.2mm dashed #bbb;' : ''}
+              ${!isThermal && !isSheet ? 'border: 0.2mm dashed #bbb;' : ''}
             }
             .header {
               width: 100%;

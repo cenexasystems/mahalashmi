@@ -1,6 +1,6 @@
 /**
  * Shared date ranges for every "Today / This Week / This Month / This Year" filter.
- *   Week  = Monday to Saturday of the current week (the shop's working week)
+ *   Week  = Monday to Sunday of the current week
  *   Month = 1st to the last day of the month (28/29/30/31)
  *   Year  = 1 January to 31 December
  * All dates are local (IST), never UTC, so "today" is right after midnight too.
@@ -24,7 +24,7 @@ export const getPresetDates = (preset: RangePreset, now: Date = new Date()): { f
   if (preset === 'today') return { from: today, to: today }
   if (preset === 'week') {
     const from = startOfWeekMonday(today)
-    const to = new Date(from); to.setDate(from.getDate() + 5) // Saturday
+    const to = new Date(from); to.setDate(from.getDate() + 6) // Sunday
     return { from, to }
   }
   if (preset === 'month') {
@@ -37,6 +37,25 @@ export const getPresetDates = (preset: RangePreset, now: Date = new Date()): { f
 export const getPresetRange = (preset: RangePreset, now: Date = new Date()): { from: string; to: string } => {
   const { from, to } = getPresetDates(preset, now)
   return { from: toLocalDateStr(from), to: toLocalDateStr(to) }
+}
+
+/**
+ * Whether a yearly date (birthday / anniversary, stored with its original year)
+ * falls between `from` and `to` (YYYY-MM-DD, inclusive) in any year of that
+ * range. 29 Feb counts as 28 Feb in non-leap years.
+ */
+export const yearlyDateInRange = (dateStr: string | null | undefined, from: string, to: string): boolean => {
+  if (!dateStr) return false
+  const [, mm, dd] = dateStr.slice(0, 10).split('-').map(Number)
+  if (!mm || !dd) return false
+  const startYear = Number((from || to).slice(0, 4))
+  const endYear = Number((to || from).slice(0, 4))
+  for (let y = startYear; y <= endYear; y++) {
+    const lastDay = new Date(y, mm, 0).getDate()
+    const occ = toLocalDateStr(new Date(y, mm - 1, Math.min(dd, lastDay)))
+    if ((!from || occ >= from) && (!to || occ <= to)) return true
+  }
+  return false
 }
 
 /** Whether a timestamp/date falls inside the preset (inclusive of the whole last day). */

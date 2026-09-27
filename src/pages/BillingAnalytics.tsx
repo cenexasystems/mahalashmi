@@ -451,8 +451,8 @@ export default function BillingAnalytics() {
     })
     const weekAnchor = new Date(`${analyticsDateTo || analyticsDateFrom || toLocalDateStr(new Date())}T00:00:00`)
     const weekStart = startOfWeekMonday(weekAnchor)
-    // Shop week: Monday to Saturday
-    const weeklySales = Array.from({ length: 6 }, (_, index) => {
+    // Week: Monday to Sunday
+    const weeklySales = Array.from({ length: 7 }, (_, index) => {
       const date = new Date(weekStart)
       date.setDate(weekStart.getDate() + index)
       const key = toLocalDateStr(date)

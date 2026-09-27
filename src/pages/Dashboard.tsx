@@ -580,14 +580,14 @@ export default function Dashboard() {
       weeklyRevenueMap.set(k, (weeklyRevenueMap.get(k) || 0) + getOrderTotal(o))
     })
 
-    // Shop week: Monday to Saturday
+    // Week: Monday to Sunday
     const mondayDate = startOfWeekMonday(new Date())
 
-    const weeklySales = Array.from({ length: 6 }, (_, i) => {
+    const weeklySales = Array.from({ length: 7 }, (_, i) => {
       const d = new Date(mondayDate)
       d.setDate(d.getDate() + i)
       const k = toLocalDateKey(d)
-      // Force short weekday names in English to match Mon, Tue, Wed, Thu, Fri, Sat exactly
+      // Force short weekday names in English to match Mon, Tue, Wed, Thu, Fri, Sat, Sun exactly
       const dayName = new Intl.DateTimeFormat('en-US', { weekday: 'short' }).format(d)
       return { day: dayName, date: k, revenue: weeklyRevenueMap.get(k) || 0 }
     })
