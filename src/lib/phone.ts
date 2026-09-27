@@ -69,5 +69,10 @@ export function toWhatsAppUrl(phone: string, text?: string): string {
     queryParams.push(`text=${encodeURIComponent(text)}`)
   }
 
-  return `https://api.whatsapp.com/send${queryParams.length > 0 ? `?${queryParams.join('&')}` : ''}`
+  // Phones: api.whatsapp.com opens the WhatsApp app. Computers: go straight to
+  // WhatsApp Web - the desktop-app hand-off (and wa.me redirects) turn emojis
+  // like 🔔 🧾 📞 into "�", while WhatsApp Web keeps them intact.
+  const isMobile = typeof navigator !== 'undefined' && /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent)
+  const base = isMobile ? 'https://api.whatsapp.com/send' : 'https://web.whatsapp.com/send'
+  return `${base}${queryParams.length > 0 ? `?${queryParams.join('&')}` : ''}`
 }

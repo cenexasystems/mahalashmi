@@ -84,6 +84,10 @@ export const formatInvoiceNo = (invNo: unknown): string => {
   const base = raw.replace(/^INV/i, '').replace(/[^\d]/g, '')
   if (!base) return 'INV10000001'
 
+  // Sequential bills stored with 16 digits (INV0000000000000025) are shown in the
+  // 8-digit style new bills use (INV10000025) - same counter, same number space.
+  if (/^\d{16}$/.test(base) && Number(base) < 90000000) return `INV${10000000 + Number(base)}`
+
   // If already has full timestamp (15+ digits), just use it as-is
   if (base.length >= 15) return `INV${base}`
 

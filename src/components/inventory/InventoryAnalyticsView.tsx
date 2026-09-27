@@ -16,7 +16,7 @@ import {
   type InventoryStockItem,
 } from '../../services/inventoryService'
 import { BRAND_MONOGRAM } from '../../lib/brand'
-import { downloadXlsx, type XlsxColumn } from '../../lib/xlsxExport'
+import { downloadCsv, type XlsxColumn } from '../../lib/xlsxExport'
 
 export const InventoryAnalyticsView: React.FC = () => {
   const [range, setRange] = useState<'all' | 'today' | 'week' | 'month'>('all')
@@ -134,9 +134,8 @@ export const InventoryAnalyticsView: React.FC = () => {
         ]
       })
 
-      await downloadXlsx({
+      downloadCsv({
         filename: `${BRAND_MONOGRAM}_Inventory_Snapshot_${new Date().toISOString().slice(0, 10)}`,
-        sheetName: 'Inventory Snapshot',
         columns,
         rows,
       })
@@ -175,9 +174,8 @@ export const InventoryAnalyticsView: React.FC = () => {
       m.note || '',
     ])
 
-    await downloadXlsx({
-      filename: `${BRAND_MONOGRAM}_Inventory_Movements_${range}_${Date.now()}`,
-      sheetName: 'Inventory Movements',
+    downloadCsv({
+      filename: `${BRAND_MONOGRAM}_Inventory_Movements_${range}_${new Date().toISOString().slice(0, 10)}`,
       columns,
       rows,
     })

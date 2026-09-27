@@ -3,6 +3,7 @@ import { AlertTriangle, Volume2, VolumeX, Package } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import { useSound } from '../../context/SoundContext'
 import { useAlarmQueueStore } from '../../store/alarmQueueStore'
+import { ModalPortal } from '../ModalPortal'
 
 interface LowStockItem {
   id: string | number
@@ -135,7 +136,7 @@ export default function LowStockAlarmModal({ triggerKey }: { triggerKey?: string
       : `${lowCount} item${lowCount > 1 ? 's' : ''} require${lowCount === 1 ? 's' : ''} immediate restocking`
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4">
+    <ModalPortal><div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4">
       <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl overflow-hidden border-2 border-red-500">
         <div className="px-5 py-4 flex items-center justify-between gap-3 bg-gradient-to-r from-red-600 to-orange-500">
           <div className="flex items-center gap-3 min-w-0">
@@ -191,6 +192,6 @@ export default function LowStockAlarmModal({ triggerKey }: { triggerKey?: string
           </div>
         </div>
       </div>
-    </div>
+    </div></ModalPortal>
   )
 }

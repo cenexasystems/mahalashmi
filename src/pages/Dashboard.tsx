@@ -41,7 +41,7 @@ import { formatCurrency, normalizeOrderMode, toNumber } from '../lib/retail'
 import { normalizeStructuredOrderItem, formatInvoiceNo } from '../lib/retail'
 import { Invoice } from '../components/Invoice'
 import { printThermalReceipt } from '../lib/thermalPrint'
-import { buildProfessionalWhatsAppMessage, buildCreditReminderWhatsAppMessage } from '../lib/whatsappMessage'
+import { buildProfessionalWhatsAppMessage, buildCreditReminderWhatsAppMessage, buildCreditPaidWhatsAppMessage } from '../lib/whatsappMessage'
 import { invoicePdfFile } from '../lib/invoicePdf'
 import { toWhatsAppUrl } from '../lib/phone'
 import { toDaysOverdue } from '../services/creditService'
@@ -76,6 +76,7 @@ import {
   BarChart,
   Bar,
 } from 'recharts'
+import { ModalPortal } from '../components/ModalPortal'
 
 export type DashboardOrder = {
   id: string; invoice_no: string; customer_name: string; phone: string; address: string
@@ -323,6 +324,7 @@ export default function Dashboard() {
       invoice_pdf_url: String(row.invoice_pdf_url || ''),
       remarks: row.remarks ? String(row.remarks) : undefined,
       reference_number: row.reference_number ? String(row.reference_number) : undefined,
+      is_credit: row.is_credit === true || row.is_credit === 'true',
       credit_due_date: row.credit_due_date ? String(row.credit_due_date) : null,
       credit_status: row.credit_status ? String(row.credit_status) : null,
       credit_paid_at: row.credit_paid_at ? String(row.credit_paid_at) : null,
@@ -734,7 +736,7 @@ export default function Dashboard() {
   const filteredSearchResults = useMemo(() => {
     // Credit sales stay out of Order History (they live in Outstanding Credits
     // instead) until they're marked paid, at which point they "move" here.
-    const settled = searchResults.filter(o => o.credit_status !== 'outstanding')
+    const settled = searchResults.filter(o => o.credit_status !== 'outstanding' && !(o.is_credit && !o.credit_status))
     if (billTypeFilter === 'all') return settled
     return settled.filter(o => {
       const type = normalizeOrderType(o.order_type)
@@ -754,7 +756,7 @@ export default function Dashboard() {
       const productsPromise = fetchProducts(true)
       const [oRes, couponRes, expList] = await Promise.all([
         supabase.from('orders')
-          .select('id, invoice_no, customer_name, phone, address, created_at, total, status, order_mode, order_type, user_id, items, coupon_code, discount_amount, manual_discount_amount, delivery_charge, total_gst, gst_amount, payment_mode, payment_method, invoice_pdf_url, remarks, reference_number, credit_due_date, credit_status, credit_paid_at')
+          .select('id, invoice_no, customer_name, phone, address, created_at, total, status, order_mode, order_type, user_id, items, coupon_code, discount_amount, manual_discount_amount, delivery_charge, total_gst, gst_amount, payment_mode, payment_method, invoice_pdf_url, remarks, reference_number, is_credit, credit_due_date, credit_status, credit_paid_at')
           .order('created_at', { ascending: false })
           .limit(1000),
         supabase.from('coupons')
@@ -840,10 +842,10 @@ export default function Dashboard() {
 
   const deleteOrder = async (orderId: string, invoiceNo: string) => {
     if (role === 'staff') {
-      const confirmed = window.confirm(`Delete order ${invoiceNo}? This action cannot be undone.`)
+      const confirmed = window.confirm(`Delete order ${formatInvoiceNo(invoiceNo)}? This action cannot be undone.`)
       if (!confirmed) return
     } else {
-      if (!window.confirm(`Are you sure you want to completely delete order ${invoiceNo}? This cannot be undone.`)) return
+      if (!window.confirm(`Are you sure you want to completely delete order ${formatInvoiceNo(invoiceNo)}? This cannot be undone.`)) return
     }
     // Clear FK reference in advance_orders first (if this order was created from an advance order)
     await supabase.from('advance_orders').update({ completed_order_id: null }).eq('completed_order_id', orderId)
@@ -1136,7 +1138,7 @@ export default function Dashboard() {
       const hasQuery = Boolean(invInput || phoneInput || custInput)
 
       let q = supabase.from('orders')
-        .select('id, invoice_no, customer_name, phone, address, created_at, total, status, order_mode, order_type, items, coupon_code, discount_amount, manual_discount_amount, delivery_charge, total_gst, gst_amount, payment_mode, payment_method, invoice_pdf_url, remarks, reference_number')
+        .select('id, invoice_no, customer_name, phone, address, created_at, total, status, order_mode, order_type, items, coupon_code, discount_amount, manual_discount_amount, delivery_charge, total_gst, gst_amount, payment_mode, payment_method, invoice_pdf_url, remarks, reference_number, is_credit, credit_due_date, credit_status, credit_paid_at')
         .neq('order_type', 'online_request')
         .order('created_at', { ascending: false })
         .limit(hasQuery ? 1000 : 500)
@@ -1165,8 +1167,9 @@ export default function Dashboard() {
 
       // Apply date filters only if no specific text query is active or if custom date range was selected
       if (!hasQuery || datePreset === 'custom') {
-        if (search.dateFrom) q = q.gte('created_at', `${search.dateFrom}T00:00:00`)
-        if (search.dateTo)   q = q.lte('created_at', `${search.dateTo}T23:59:59`)
+        // Day bounds in the shop's local time (IST), sent as UTC instants
+        if (search.dateFrom) q = q.gte('created_at', new Date(`${search.dateFrom}T00:00:00`).toISOString())
+        if (search.dateTo)   q = q.lte('created_at', new Date(`${search.dateTo}T23:59:59.999`).toISOString())
       }
 
       if (billTypeFilter === 'manual')       q = q.eq('order_type', 'manual_sale')
@@ -1227,6 +1230,16 @@ export default function Dashboard() {
     }
   }
 
+  // Re-run the search when a bill-type or date filter changes, so tapping a
+  // filter updates the list without also pressing "Search Bills".
+  const runSearchRef = useRef(runSearch)
+  runSearchRef.current = runSearch
+  const searchFiltersReady = useRef(false)
+  useEffect(() => {
+    if (!searchFiltersReady.current) { searchFiltersReady.current = true; return }
+    void runSearchRef.current()
+  }, [billTypeFilter, search.dateFrom, search.dateTo])
+
   useEffect(() => {
     try {
       window.localStorage.setItem('dashboard-sidebar-collapsed', sidebarCollapsed ? '1' : '0')
@@ -1280,7 +1293,8 @@ export default function Dashboard() {
   // a different filter over the same data, not a separate fetch.
   const outstandingCreditOrders = useMemo(
     () => orders
-      .filter(o => o.credit_status === 'outstanding')
+      // A credit bill with no credit_status yet (e.g. saved before the column existed) is still unpaid
+      .filter(o => o.credit_status === 'outstanding' || (o.is_credit && !o.credit_status))
       .sort((a, b) => (a.credit_due_date || '9999-99-99').localeCompare(b.credit_due_date || '9999-99-99')),
     [orders]
   )
@@ -3620,7 +3634,15 @@ export default function Dashboard() {
             onPrint={(o) => handlePrintReceipt(o)}
             onDownload={(o) => void openOrderInvoice(o, 'download')}
             onShare={(o) => {
-              const message = buildCreditReminderWhatsAppMessage({
+              // Settled bills get a "payment received, thank you" message, not a payment reminder
+              const message = o.credit_status === 'paid'
+                ? buildCreditPaidWhatsAppMessage({
+                    customerName: o.customer_name,
+                    invoiceNumber: o.invoice_no,
+                    amount: Number(o.total || 0),
+                    paidAt: o.credit_paid_at || null,
+                  })
+                : buildCreditReminderWhatsAppMessage({
                 customerName: o.customer_name,
                 invoiceNumber: o.invoice_no,
                 amount: Number(o.total || 0),
@@ -3649,7 +3671,7 @@ export default function Dashboard() {
         if (!preview) return null
 
         return (
-          <div
+          <ModalPortal><div
             className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-3 sm:p-6"
             role="dialog"
             aria-modal="true"
@@ -3714,7 +3736,7 @@ export default function Dashboard() {
                 </div>
               </div>
             </div>
-          </div>
+          </div></ModalPortal>
         )
       })()}
 

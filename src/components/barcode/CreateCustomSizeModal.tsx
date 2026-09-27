@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { X, Info } from 'lucide-react'
 import { type LabelSizeConfig, saveStoredCustomSize } from '../../lib/barcode'
+import { ModalPortal } from '../ModalPortal'
 
 interface CreateCustomSizeModalProps {
   isOpen: boolean
@@ -78,7 +79,7 @@ export const CreateCustomSizeModal: React.FC<CreateCustomSizeModalProps> = ({
   const numGap = parseFloat(horizontalGapMm) || 2
 
   return createPortal(
-    <div className="fixed inset-0 top-0 left-0 right-0 bottom-0 w-screen h-screen h-[100dvh] z-[9999] flex items-center justify-center bg-black/75 backdrop-blur-sm p-0 sm:p-4 overflow-hidden animate-in fade-in duration-150">
+    <ModalPortal><div className="fixed inset-0 top-0 left-0 right-0 bottom-0 w-screen h-screen h-[100dvh] z-[9999] flex items-center justify-center bg-black/75 backdrop-blur-sm p-0 sm:p-4 overflow-hidden animate-in fade-in duration-150">
       <div className="absolute inset-0" onClick={onClose} />
       <div className="relative z-10 bg-white rounded-none sm:rounded-2xl max-w-2xl w-full h-screen h-[100dvh] sm:h-auto sm:max-h-[90vh] border-0 sm:border border-[#E5E7EB] shadow-2xl overflow-hidden flex flex-col">
         {/* Header - fixed top */}
@@ -266,7 +267,7 @@ export const CreateCustomSizeModal: React.FC<CreateCustomSizeModalProps> = ({
           </div>
         </form>
       </div>
-    </div>,
+    </div></ModalPortal>,
     document.body
   )
 }

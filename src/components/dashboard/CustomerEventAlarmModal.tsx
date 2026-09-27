@@ -5,6 +5,7 @@ import { toWhatsAppUrl } from '../../lib/phone'
 import { BRAND_EN } from '../../lib/brand'
 import { useSound } from '../../context/SoundContext'
 import { useAlarmQueueStore } from '../../store/alarmQueueStore'
+import { ModalPortal } from '../ModalPortal'
 
 /**
  * Mirrors ExpiryAlarmModal: fires its check on mount (i.e. right after
@@ -145,7 +146,7 @@ export default function CustomerEventAlarmModal({ triggerKey }: { triggerKey?: s
       : `${anniversaryCount} customer anniversary${anniversaryCount > 1 ? 'ies' : ''} today`
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4">
+    <ModalPortal><div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4">
       <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl overflow-hidden border-2 border-pink-400">
         <div className="px-5 py-4 flex items-center justify-between gap-3 bg-gradient-to-r from-pink-500 to-violet-500">
           <div className="flex items-center gap-3 min-w-0">
@@ -216,6 +217,6 @@ export default function CustomerEventAlarmModal({ triggerKey }: { triggerKey?: s
           </div>
         </div>
       </div>
-    </div>
+    </div></ModalPortal>
   )
 }

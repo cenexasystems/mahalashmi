@@ -75,7 +75,7 @@ export function printThermalReceipt(data: ThermalReceiptData) {
     <!DOCTYPE html>
     <html>
       <head>
-        <title>Receipt - ${data.invoiceNo}</title>
+        <title>Receipt - ${formatInvoiceNo(data.invoiceNo)}</title>
         <style>
           @page {
             margin: 0;

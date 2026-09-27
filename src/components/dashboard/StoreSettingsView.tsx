@@ -3,6 +3,7 @@ import { Store, Phone, MapPin, Palette, Package, SlidersHorizontal, Lock, Refres
 import { useSettingsStore, useAdminAuthStore, useProductStore } from '../../store/store'
 import { BRAND_LOGO, BRAND_EN } from '../../lib/brand'
 import { isSupabaseConfigured } from '../../lib/supabase'
+import { ModalPortal } from '../ModalPortal'
 
 const ACCENT_SWATCHES = [
   '#2E7D32', '#0F5132', '#1B5E20', '#DC2626', '#EA580C', '#B91C1C',
@@ -387,7 +388,7 @@ export default function StoreSettingsView({ onAddProduct }: StoreSettingsViewPro
       )}
 
       {pwOpen && (
-        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/50 p-4" onClick={() => setPwOpen(false)}>
+        <ModalPortal><div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/50 p-4" onClick={() => setPwOpen(false)}>
           <div
             onClick={e => e.stopPropagation()}
             className="w-full max-w-sm bg-white rounded-2xl shadow-2xl max-h-[90vh] overflow-y-auto"
@@ -420,7 +421,7 @@ export default function StoreSettingsView({ onAddProduct }: StoreSettingsViewPro
               )}
             </form>
           </div>
-        </div>
+        </div></ModalPortal>
       )}
     </div>
   )

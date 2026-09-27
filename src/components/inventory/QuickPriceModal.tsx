@@ -4,6 +4,7 @@ import { updateItemPrice } from '../../services/productService'
 import { getErrorMessage } from '../../lib/errorMessage'
 import type { InventoryStockItem } from '../../services/inventoryService'
 import { useSound } from '../../context/SoundContext'
+import { ModalPortal } from '../ModalPortal'
 
 interface Props {
   isOpen: boolean
@@ -75,7 +76,7 @@ export const QuickPriceModal: React.FC<Props> = ({ isOpen, item, onClose, onSucc
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs">
+    <ModalPortal><div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs">
       <div className="bg-white rounded-2xl w-full max-w-md max-h-[90vh] overflow-y-auto shadow-2xl border border-[#B7E1BE]/50 animate-in fade-in zoom-in-95">
         {/* Header */}
         <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between bg-[#FBFAF6]">
@@ -203,6 +204,6 @@ export const QuickPriceModal: React.FC<Props> = ({ isOpen, item, onClose, onSucc
           </div>
         </form>
       </div>
-    </div>
+    </div></ModalPortal>
   )
 }

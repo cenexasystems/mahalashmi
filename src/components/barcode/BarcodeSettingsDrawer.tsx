@@ -10,6 +10,7 @@ import {
 } from '../../lib/barcode'
 import { BRAND_EN } from '../../lib/brand'
 import { CreateCustomSizeModal } from './CreateCustomSizeModal'
+import { ModalPortal } from '../ModalPortal'
 
 interface BarcodeSettingsDrawerProps {
   isOpen: boolean
@@ -76,7 +77,7 @@ export const BarcodeSettingsDrawer: React.FC<BarcodeSettingsDrawerProps> = ({
   return (
     <>
       {createPortal(
-        <div className="fixed inset-0 top-0 left-0 right-0 bottom-0 w-screen h-screen h-[100dvh] z-[9999] flex justify-end bg-black/60 backdrop-blur-xs animate-in fade-in duration-150">
+        <ModalPortal><div className="fixed inset-0 top-0 left-0 right-0 bottom-0 w-screen h-screen h-[100dvh] z-[9999] flex justify-end bg-black/60 backdrop-blur-xs animate-in fade-in duration-150">
           <div className="absolute inset-0" onClick={onClose} />
           <div className="relative z-10 w-full max-w-sm bg-white h-screen h-[100dvh] shadow-2xl flex flex-col border-l border-gray-200 animate-in slide-in-from-right duration-200">
             {/* Header */}
@@ -231,7 +232,7 @@ export const BarcodeSettingsDrawer: React.FC<BarcodeSettingsDrawerProps> = ({
             </button>
           </div>
         </div>
-      </div>,
+      </div></ModalPortal>,
       document.body
     )}
 

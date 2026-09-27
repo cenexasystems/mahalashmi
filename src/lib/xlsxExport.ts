@@ -56,6 +56,35 @@ export async function downloadXlsx(params: {
 }
 
 /**
+ * Same inputs as downloadXlsx, but downloads a plain .csv (text/csv). iPhone
+ * Safari offers "View" as well as "Download" for CSV, while an .xlsx sent as
+ * a binary blob can only be downloaded. CSV carries no column widths.
+ */
+export function downloadCsv(params: {
+  filename: string
+  columns: XlsxColumn[]
+  rows: Array<Array<string | number | null | undefined>>
+}): void {
+  const cell = (v: string | number | null | undefined) => {
+    const s = v === null || v === undefined ? '' : String(v)
+    return /[",\r\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s
+  }
+  const csv = [params.columns.map((c) => cell(c.header)), ...params.rows.map((r) => r.map(cell))]
+    .map((r) => r.join(','))
+    .join('\r\n')
+  // BOM so Excel reads ₹ and Tamil text as UTF-8
+  const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' })
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = params.filename.endsWith('.csv') ? params.filename : `${params.filename}.csv`
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
+  URL.revokeObjectURL(url)
+}
+
+/**
  * Same download mechanics as downloadXlsx, but for reports built from
  * several stacked sections whose column counts differ (a "Metric/Value"
  * pair here, a 5-column ranking table there) — so there's no single

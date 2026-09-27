@@ -4,6 +4,7 @@ import { BrowserMultiFormatReader, type IScannerControls } from '@zxing/browser'
 import { barcodeService } from '../../services/barcodeService'
 import { BRAND_EN } from '../../lib/brand'
 import { normalizeBarcode } from '../../lib/barcode'
+import { ModalPortal } from '../ModalPortal'
 
 export interface ScannedItemPayload {
   product_id: number
@@ -413,7 +414,7 @@ export const BarcodeScannerInput: React.FC<BarcodeScannerInputProps> = ({
 
       {/* Instant Webcam Scanner Modal */}
       {isCameraOpen && (
-        <div
+        <ModalPortal><div
           onClick={(e) => {
             if (e.target === e.currentTarget) handleCloseCamera()
           }}
@@ -464,7 +465,7 @@ export const BarcodeScannerInput: React.FC<BarcodeScannerInputProps> = ({
               </p>
             </div>
           </div>
-        </div>
+        </div></ModalPortal>
       )}
     </div>
   )

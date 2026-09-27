@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { X, Calendar, Tag, AlertCircle } from 'lucide-react'
 import { expenseService, type ExpenseCategory, type ExpenseRecord } from '../../services/expenseService'
 import { getErrorMessage } from '../../lib/errorMessage'
+import { ModalPortal } from '../ModalPortal'
 
 interface RecordExpenseModalProps {
   isOpen: boolean
@@ -82,6 +83,7 @@ export const RecordExpenseModal: React.FC<RecordExpenseModalProps> = ({
   }
 
   return (
+    <ModalPortal>
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-xs p-3 sm:p-4 overflow-hidden animate-in fade-in duration-150">
       <div className="bg-white rounded-2xl sm:rounded-3xl max-w-md w-full max-h-[92vh] border border-[#B7E1BE] shadow-2xl overflow-hidden flex flex-col animate-in zoom-in-95 duration-150">
         {/* Header */}
@@ -201,5 +203,6 @@ export const RecordExpenseModal: React.FC<RecordExpenseModalProps> = ({
         </form>
       </div>
     </div>
+    </ModalPortal>
   )
 }

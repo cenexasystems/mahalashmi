@@ -309,8 +309,13 @@ CREATE TABLE IF NOT EXISTS public.store_settings (
   accent_color TEXT NOT NULL DEFAULT '#2E7D32',
   business_type TEXT NOT NULL DEFAULT '',
   shop_contact_number TEXT NOT NULL DEFAULT '9865975714, 8668151051',
+  customer_event_messages JSONB NOT NULL DEFAULT '{}'::JSONB,
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+-- Birthday / anniversary offer list and WhatsApp message template (added after launch)
+ALTER TABLE public.store_settings
+  ADD COLUMN IF NOT EXISTS customer_event_messages JSONB NOT NULL DEFAULT '{}'::JSONB;
 
 CREATE TABLE IF NOT EXISTS public.advance_orders (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -728,11 +733,22 @@ SELECT setval(
 
 CREATE OR REPLACE FUNCTION public.next_invoice_no()
 RETURNS TEXT
-LANGUAGE sql
+LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = public
 AS $$
-  SELECT 'INV' || LPAD(nextval('public.invoice_no_seq')::TEXT, 16, '0');
+DECLARE
+  v_no TEXT;
+BEGIN
+  LOOP
+    v_no := 'INV' || (10000000 + nextval('public.invoice_no_seq'))::TEXT;
+    EXIT WHEN NOT EXISTS (
+      SELECT 1 FROM public.orders
+      WHERE UPPER(invoice_no) = v_no OR invoice_no = SUBSTRING(v_no FROM 4)
+    );
+  END LOOP;
+  RETURN v_no;
+END;
 $$;
 
 GRANT EXECUTE ON FUNCTION public.next_invoice_no() TO anon, authenticated;
@@ -853,6 +869,18 @@ BEGIN
     RETURN;
   END IF;
 
+  -- 8-digit display number of a bill stored with 16 digits:
+  -- INV10000025 -> INV0000000000000025.
+  IF v_id ~* '^(INV)?1[0-9]{7}$' THEN
+    RETURN QUERY
+    SELECT o.* FROM public.orders o
+    WHERE o.invoice_no = 'INV' || LPAD((RIGHT(v_id, 8)::BIGINT - 10000000)::TEXT, 16, '0')
+    LIMIT 1;
+    IF FOUND THEN
+      RETURN;
+    END IF;
+  END IF;
+
   -- Links sent before the link fix shortened sequential numbers to their last
   -- 8 digits (INV0000000000000013 -> INV00000013): expand them back.
   IF v_id ~* '^(INV)?[0-9]{1,16}$' THEN
@@ -886,35 +914,38 @@ CREATE OR REPLACE FUNCTION public.adjust_inventory_stock(
 )
 RETURNS JSON AS $$
 DECLARE
+  v_variant_id UUID := NULLIF(TRIM(COALESCE(p_variant_id, '')), '')::UUID;
   v_quantity_before NUMERIC;
   v_quantity_after NUMERIC := p_new_quantity;
   v_quantity_delta NUMERIC;
-  v_created_at TIMESTAMP;
 BEGIN
-  v_created_at := NOW();
-
-  IF p_variant_id IS NOT NULL THEN
-    SELECT stock INTO v_quantity_before FROM public.product_variants WHERE id = p_variant_id;
-    UPDATE public.product_variants SET stock = p_new_quantity WHERE id = p_variant_id;
+  IF v_variant_id IS NOT NULL THEN
+    SELECT stock INTO v_quantity_before FROM public.product_variants WHERE id = v_variant_id FOR UPDATE;
+    UPDATE public.product_variants SET stock = p_new_quantity, updated_at = NOW() WHERE id = v_variant_id;
   ELSE
-    SELECT stock_quantity INTO v_quantity_before FROM public.products WHERE id = p_product_id;
-    UPDATE public.products SET stock_quantity = p_new_quantity WHERE id = p_product_id;
+    SELECT stock_quantity INTO v_quantity_before FROM public.products WHERE id = p_product_id FOR UPDATE;
+    UPDATE public.products SET stock_quantity = p_new_quantity, updated_at = NOW() WHERE id = p_product_id;
   END IF;
 
   v_quantity_delta := COALESCE(v_quantity_after, 0) - COALESCE(v_quantity_before, 0);
+
+  -- The parent product's stock is the total of its variants.
+  IF v_variant_id IS NOT NULL THEN
+    UPDATE public.products SET stock_quantity = stock_quantity + v_quantity_delta, updated_at = NOW() WHERE id = p_product_id;
+  END IF;
 
   INSERT INTO public.inventory_movements (
     product_id, variant_id, movement_type, quantity_delta, quantity_before, quantity_after,
     reference_type, note, created_by_name, created_at
   ) VALUES (
-    p_product_id, p_variant_id, p_reason, v_quantity_delta,
+    p_product_id, v_variant_id, p_reason, v_quantity_delta,
     COALESCE(v_quantity_before, 0), COALESCE(v_quantity_after, 0),
-    'adjustment', COALESCE(p_note, ''), COALESCE(p_created_by_name, 'Admin'), v_created_at
+    'adjustment', COALESCE(p_note, ''), COALESCE(p_created_by_name, 'Admin'), NOW()
   );
 
   RETURN json_build_object(
     'product_id', p_product_id,
-    'variant_id', p_variant_id,
+    'variant_id', v_variant_id,
     'quantity_before', COALESCE(v_quantity_before, 0),
     'quantity_after', v_quantity_after,
     'quantity_delta', v_quantity_delta

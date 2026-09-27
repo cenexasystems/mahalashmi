@@ -252,7 +252,7 @@ export default function DigitalInvoice() {
 
     if (navigator.share && navigator.canShare?.({ files: [file] })) {
       try {
-        await navigator.share({ files: [file], title: `Invoice ${invoice.invoice_no}`, text: whatsappMessage })
+        await navigator.share({ files: [file], title: `Invoice ${formatInvoiceNo(invoice.invoice_no)}`, text: whatsappMessage })
         whatsappWindow?.close()
         return
       } catch { /* fall through to the pre-opened tab below */ }

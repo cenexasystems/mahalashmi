@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react'
 import { X, History, ArrowUpRight, ArrowDownRight, RefreshCw } from 'lucide-react'
 import { inventoryService, type InventoryMovement, type InventoryStockItem } from '../../services/inventoryService'
 import { BRAND_EN } from '../../lib/brand'
+import { ModalPortal } from '../ModalPortal'
 
 export interface StockHistoryDrawerProps {
   isOpen: boolean
@@ -66,7 +67,7 @@ export const StockHistoryDrawer: React.FC<StockHistoryDrawerProps> = ({
   }
 
   return (
-    <div className="fixed inset-0 z-50 overflow-hidden bg-black/60 backdrop-blur-xs flex justify-end">
+    <ModalPortal><div className="fixed inset-0 z-50 overflow-hidden bg-black/60 backdrop-blur-xs flex justify-end">
       <div className="bg-white w-full max-w-md h-full shadow-2xl flex flex-col animate-in slide-in-from-right duration-200 border-l border-[#B7E1BE] safe-area-inset-right">
         {/* Header */}
         <div className="bg-[#0A0A0A] px-5 py-4 border-b border-[var(--accent-a30)] flex items-center justify-between text-white sticky top-0 z-10 safe-area-inset-top min-h-16">
@@ -200,6 +201,6 @@ export const StockHistoryDrawer: React.FC<StockHistoryDrawerProps> = ({
           )}
         </div>
       </div>
-    </div>
+    </div></ModalPortal>
   )
 }

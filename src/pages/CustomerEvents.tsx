@@ -7,6 +7,7 @@ import { getErrorMessage } from '../lib/errorMessage'
 import { toWhatsAppUrl, formatPhoneDisplay } from '../lib/phone'
 import { BRAND_EN } from '../lib/brand'
 import { DateInputDDMMYYYY } from '../components/DateInputDDMMYYYY'
+import { ModalPortal } from '../components/ModalPortal'
 
 type FilterKey = 'all' | 'birthday' | 'anniversary' | 'today'
 type DatePreset = 'thisMonth' | 'thisYear' | 'all' | 'custom'
@@ -512,7 +513,7 @@ export default function CustomerEvents() {
 
       {/* Add / Edit Modal */}
       {(modalMode === 'add' || modalMode === 'edit') && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs">
+        <ModalPortal><div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs">
           <div className="bg-white rounded-2xl w-full max-w-md max-h-[90vh] flex flex-col shadow-2xl overflow-y-auto border border-pink-200 animate-in fade-in zoom-in-95">
             <div className="px-4 sm:px-5 py-3 border-b border-gray-200 flex items-center justify-between bg-[#FBFAF6] shrink-0">
               <div className="flex items-center gap-2">
@@ -614,12 +615,12 @@ export default function CustomerEvents() {
               </div>
             </form>
           </div>
-        </div>
+        </div></ModalPortal>
       )}
 
       {/* View Modal */}
       {modalMode === 'view' && activeCustomer && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs">
+        <ModalPortal><div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs">
           <div className="bg-white rounded-2xl w-full max-w-sm shadow-2xl overflow-y-auto border border-pink-200 animate-in fade-in zoom-in-95">
             <div className="px-4 sm:px-5 py-3 border-b border-gray-200 flex items-center justify-between bg-[#FBFAF6]">
               <h3 className="font-bold text-sm text-[#111111] flex items-center gap-2">
@@ -672,7 +673,7 @@ export default function CustomerEvents() {
               </div>
             </div>
           </div>
-        </div>
+        </div></ModalPortal>
       )}
     </div>
   )

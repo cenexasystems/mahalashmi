@@ -7,7 +7,11 @@ export const formatDateDDMMYYYY = (date: string | Date | null | undefined): stri
   if (!date) return ''
 
   try {
-    const d = typeof date === 'string' ? new Date(`${date}T00:00:00`) : date
+    // A bare YYYY-MM-DD is read as local midnight; full timestamps (created_at,
+    // credit_paid_at, ...) are parsed as-is and shown in local time.
+    const d = typeof date === 'string'
+      ? new Date(/^\d{4}-\d{2}-\d{2}$/.test(date.trim()) ? `${date.trim()}T00:00:00` : date)
+      : date
     if (isNaN(d.getTime())) return ''
 
     const day = String(d.getDate()).padStart(2, '0')

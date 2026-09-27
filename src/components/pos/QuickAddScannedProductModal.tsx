@@ -3,6 +3,7 @@ import { X, PackagePlus, ScanLine } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import { getErrorMessage } from '../../lib/errorMessage'
 import type { ScannedItemPayload } from './BarcodeScannerInput'
+import { ModalPortal } from '../ModalPortal'
 
 export interface QuickAddScannedProductModalProps {
   barcode: string
@@ -85,7 +86,7 @@ export const QuickAddScannedProductModal: React.FC<QuickAddScannedProductModalPr
   }
 
   return (
-    <div
+    <ModalPortal><div
       onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-xs p-4 animate-in fade-in duration-150"
     >
@@ -190,6 +191,6 @@ export const QuickAddScannedProductModal: React.FC<QuickAddScannedProductModalPr
           </button>
         </div>
       </div>
-    </div>
+    </div></ModalPortal>
   )
 }

@@ -49,6 +49,13 @@ export type CreditReminderWhatsAppInput = {
   daysOverdue: number
 }
 
+export type CreditPaidWhatsAppInput = {
+  customerName?: string
+  invoiceNumber: string
+  amount: number
+  paidAt?: string | null
+}
+
 export type AdvanceDepositWhatsAppInput = {
   customerName?: string
   depositId: string
@@ -142,6 +149,34 @@ ${statusLine}
 Kindly clear the payment at your earliest convenience. Thank you for your continued support!
 
 📞 *Shop Contact:* ${shop.phone}`
+}
+
+/** Sent from Credit Bills History: the pending amount has been cleared. */
+export const buildCreditPaidWhatsAppMessage = (input: CreditPaidWhatsAppInput) => {
+  const shop = getShopInfo()
+  const customerName = input.customerName?.trim() || 'Valued Customer'
+  const formattedNo = formatInvoiceNo(input.invoiceNumber)
+  const paidDateText = input.paidAt
+    ? new Date(input.paidAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
+    : ''
+
+  return `✅ *Payment Received — ${shop.name}* ✅
+
+Dear ${customerName},
+
+We have received your payment and your credit bill is now fully cleared. Thank you for settling it!
+
+🧾 *Invoice No:* #${formattedNo}
+💰 *Amount Paid:* ₹ ${Number(input.amount || 0).toFixed(2)}
+${paidDateText ? `📅 *Paid On:* ${paidDateText}\n` : ''}✔️ *Balance Due:* ₹ 0.00
+
+📄 *View & Download Your Invoice:*
+👉 ${publicInvoiceUrl(input.invoiceNumber)}
+
+Thank you for shopping with us — we look forward to seeing you again! 🙏
+
+📞 *Shop Contact:* ${shop.phone}
+📷 *Follow us on Instagram:* ${shop.instagramUrl}`
 }
 
 export const buildAdvanceDepositWhatsAppMessage = (input: AdvanceDepositWhatsAppInput) => {

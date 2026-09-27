@@ -5,6 +5,7 @@ import { useSound } from '../../context/SoundContext'
 import { useSettingsStore } from '../../store/store'
 import { useAlarmQueueStore } from '../../store/alarmQueueStore'
 import { formatDateDDMMYYYY } from '../../lib/dateFormat'
+import { ModalPortal } from '../ModalPortal'
 
 interface ExpiringItem {
   id: string | number
@@ -144,7 +145,7 @@ export default function ExpiryAlarmModal({ triggerKey }: { triggerKey?: string |
       : `${soonCount} item${soonCount > 1 ? 's' : ''} expiring within ${alertDays} days`
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4">
+    <ModalPortal><div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4">
       <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl overflow-hidden border-2 border-red-500">
         <div className="px-5 py-4 flex items-center justify-between gap-3 bg-gradient-to-r from-red-600 to-amber-500">
           <div className="flex items-center gap-3 min-w-0">
@@ -200,6 +201,6 @@ export default function ExpiryAlarmModal({ triggerKey }: { triggerKey?: string |
           </div>
         </div>
       </div>
-    </div>
+    </div></ModalPortal>
   )
 }

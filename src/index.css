@@ -93,7 +93,6 @@
     max-width: 100vw;
     overscroll-behavior-x: contain;
     overscroll-behavior-y: contain;
-    -webkit-overflow-scrolling: touch;
     text-rendering: optimizeLegibility;
     position: relative;
   }
@@ -184,35 +183,16 @@
     flex: 1 1 auto;
   }
 
-  /* Smooth, native-feeling scrolling everywhere, on every device:
-     - -webkit-overflow-scrolling gives inertial/momentum scrolling on
-       older iOS Safari instead of a stiff, step-by-step scroll.
-     - overscroll-behavior: contain stops a nested panel (a modal, a
-       sidebar, a scrollable table) from "chaining" its scroll into the
-       page behind it once it hits the top/bottom edge - that chain is
-       what reads as a jerky bounce on phones. */
-  .overflow-y-auto, .overflow-x-auto, .overflow-auto, .overflow-scroll {
-    -webkit-overflow-scrolling: touch;
+  /* No overscroll-behavior: contain on general scroll containers - a table
+     or card wrapper with overflow-x-auto is also a vertical scroll container,
+     and "contain" on it swallows the wheel/swipe so the page never scrolls
+     while the pointer or finger is over it. No -webkit-overflow-scrolling
+     either: modern iOS has momentum scrolling built in, and the old property
+     clips position: fixed pop-ups to the scroll area on iPhone. */
+
+  /* Pop-ups and side drawers: keep their scroll from moving the page behind */
+  .fixed .overflow-y-auto, .fixed .overflow-auto, .fixed.overflow-y-auto, .fixed.overflow-auto {
     overscroll-behavior: contain;
-    scroll-behavior: smooth;
-  }
-
-  /* Enhanced mobile scrolling for all potential scroll containers */
-  [class*="overflow"], .scrollable, .scroll-container,
-  textarea, [contenteditable], .prose {
-    -webkit-overflow-scrolling: touch;
-    overscroll-behavior: contain;
-  }
-
-  /* Fix scrolling in all overflow containers */
-  .overflow-y-auto, .overflow-x-auto, .overflow-auto {
-    -webkit-overflow-scrolling: touch;
-    scroll-behavior: smooth;
-  }
-
-  /* Ensure tables scroll properly */
-  table {
-    -webkit-overflow-scrolling: touch;
   }
 
   /* Ensure main app container scrolls properly */
@@ -233,16 +213,10 @@
     overflow: hidden;
   }
 
-  .admin-shell > aside {
-    -webkit-overflow-scrolling: touch;
-    overscroll-behavior: contain;
-  }
-
   .admin-shell > main {
-    -webkit-overflow-scrolling: touch;
-    overscroll-behavior: contain;
     overflow-y: auto;
     flex: 1;
+    min-height: 0;
   }
 
   /* Mobile-specific scroll optimization */
@@ -328,7 +302,6 @@
 
   /* Smooth scrolling utilities */
   .smooth-scroll {
-    -webkit-overflow-scrolling: touch;
     scroll-behavior: smooth;
     overscroll-behavior: contain;
   }
@@ -339,19 +312,16 @@
   }
 
   .scroll-smooth-y {
-    -webkit-overflow-scrolling: touch;
     scroll-behavior: smooth;
   }
 
   .scroll-contain {
     overscroll-behavior: contain;
-    -webkit-overflow-scrolling: touch;
   }
 
   /* Force scroll on element */
   .force-scroll {
     overflow: auto !important;
-    -webkit-overflow-scrolling: touch;
   }
 
   /* Prevent scroll chaining */

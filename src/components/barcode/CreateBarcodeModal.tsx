@@ -27,6 +27,7 @@ import { fetchVariantsByProduct, type ProductVariant } from '../../services/vari
 import { useProductStore } from '../../store/store'
 import { BarcodeSettingsDrawer } from './BarcodeSettingsDrawer'
 import { BarcodeSheetPreviewModal } from './BarcodeSheetPreviewModal'
+import { ModalPortal } from '../ModalPortal'
 
 interface ProductOption {
   id: number
@@ -621,7 +622,7 @@ export const CreateBarcodeModal: React.FC<CreateBarcodeModalProps> = ({
 
   return createPortal(
     <>
-      <div className="fixed inset-0 top-0 left-0 right-0 bottom-0 w-screen h-screen h-[100dvh] z-[9999] flex items-center justify-center bg-black/75 backdrop-blur-sm p-0 sm:p-4 overflow-hidden animate-in fade-in duration-150">
+      <ModalPortal><div className="fixed inset-0 top-0 left-0 right-0 bottom-0 w-screen h-screen h-[100dvh] z-[9999] flex items-center justify-center bg-black/75 backdrop-blur-sm p-0 sm:p-4 overflow-hidden animate-in fade-in duration-150">
         <div className="absolute inset-0" onClick={onClose} />
         <div className="relative z-10 bg-white w-full max-w-6xl h-screen h-[100dvh] sm:h-auto sm:max-h-[94vh] rounded-none sm:rounded-3xl border-0 sm:border border-gray-200 shadow-2xl overflow-hidden flex flex-col">
           {/* TOP BAR matching Screenshot 195106 */}
@@ -1329,7 +1330,7 @@ export const CreateBarcodeModal: React.FC<CreateBarcodeModalProps> = ({
             </div>
           </div>
         </div>
-      </div>
+      </div></ModalPortal>
 
       {/* Barcode Settings Drawer */}
       {showSettingsDrawer && (

@@ -2,6 +2,9 @@ import React, { useState } from 'react'
 import { ChevronLeft, ChevronRight, MessageCircle } from 'lucide-react'
 import { customerService } from '../../services/customerService'
 import type { CustomerRecord } from '../../services/customerService'
+import { useEventOfferSettings } from '../../lib/eventOfferSettings'
+import { toWhatsAppUrl } from '../../lib/phone'
+import EventOfferPanel from './EventOfferPanel'
 
 type PageType = 'calendar' | 'customers'
 
@@ -13,13 +16,7 @@ export default function BirthdayView() {
   const [currentYear, setCurrentYear] = useState(new Date().getFullYear())
   const [filterFromDate, setFilterFromDate] = useState('')
   const [filterToDate, setFilterToDate] = useState('')
-  const [selectedOffer, setSelectedOffer] = useState('20% OFF')
-  const [customMessage, setCustomMessage] = useState('')
-  const [offers, setOffers] = useState(['20% OFF', 'Buy 1 Get 1', '₹500 OFF', 'Free Gift'])
-  const [editingOffer, setEditingOffer] = useState<string | null>(null)
-  const [editingValue, setEditingValue] = useState('')
-  const [editingMessage, setEditingMessage] = useState(false)
-  const [messageToEdit, setMessageToEdit] = useState('')
+  const offerSettings = useEventOfferSettings('birthday')
 
   React.useEffect(() => {
     const loadCustomers = async () => {
@@ -63,9 +60,9 @@ export default function BirthdayView() {
   }
 
   const sendOffer = async (customer: CustomerRecord) => {
-    const message = customMessage || `Hi ${customer.name}! 🎂 Happy Birthday!\n\nHere's a special treat from us:\n${selectedOffer}\n\nEnjoy your special day!`
+    const message = offerSettings.buildMessage(customer.name)
     try {
-      const whatsappUrl = `https://wa.me/${customer.phone}?text=${encodeURIComponent(message)}`
+      const whatsappUrl = toWhatsAppUrl(customer.phone, message)
       window.open(whatsappUrl, '_blank')
       await customerService.acknowledgeEvent(customer.id, 'birthday')
     } catch (err) {
@@ -90,51 +87,6 @@ export default function BirthdayView() {
   for (let i = 1; i <= daysInMonth; i++) days.push(i)
 
   const filtered = getFilteredCustomers()
-  const previewMessage = customMessage || `Hi Aarav! 🎂 Happy Birthday!\n\nHere's a special treat from Shalistone:\n🎁 ${selectedOffer}\n\nShop online at www.example.com or visit us in store.\nFollow us on Instagram @shalistone\n\n– Shalistone · Kids & Mens Fashion`
-
-  const handleEditOffer = (offer: string) => {
-    setEditingOffer(offer)
-    setEditingValue(offer)
-  }
-
-  const handleSaveEdit = () => {
-    if (editingOffer && editingValue) {
-      setOffers(offers.map(o => o === editingOffer ? editingValue : o))
-      if (selectedOffer === editingOffer) {
-        setSelectedOffer(editingValue)
-      }
-      setEditingOffer(null)
-    }
-  }
-
-  const handleDeleteOffer = (offer: string) => {
-    setOffers(offers.filter(o => o !== offer))
-    if (selectedOffer === offer && offers.length > 1) {
-      setSelectedOffer(offers[0])
-    }
-  }
-
-  const handleAddOffer = () => {
-    const newOffer = prompt('Enter new offer (e.g., "50% OFF", "Free Shipping", etc.)')
-    if (newOffer && newOffer.trim()) {
-      const trimmed = newOffer.trim()
-      if (!offers.includes(trimmed)) {
-        setOffers([...offers, trimmed])
-      }
-    }
-  }
-
-  const handleEditMessage = () => {
-    setEditingMessage(true)
-    setMessageToEdit(previewMessage)
-  }
-
-  const handleSaveMessage = () => {
-    setCustomMessage(messageToEdit)
-    setEditingMessage(false)
-    setMessageToEdit('')
-  }
-
   const exportToCSV = () => {
     const headers = ['Customer Name', 'Phone', 'Date of Birth', 'Amount Spent']
     const rows = filtered.map(c => [
@@ -241,134 +193,8 @@ export default function BirthdayView() {
             </div>
           </div>
 
-          {/* Right Main - Birthday Message Config */}
-          <div className="space-y-4">
-            <div className="rounded-2xl border border-[#E5E7EB] bg-pink-50 p-4">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="w-8 h-8 rounded-lg bg-pink-200 flex items-center justify-center font-bold text-lg">🎁</div>
-                <div>
-                  <h3 className="font-bold text-[#273126]">Birthday Offer Message</h3>
-                  <p className="text-xs text-[#6B7280]">Sent on WhatsApp when you tap "Send Offer".</p>
-                </div>
-              </div>
-
-              <div className="mb-4 space-y-2">
-                <label className="block text-xs font-bold text-[#6B7280]">SELECT OFFER</label>
-                {editingOffer ? (
-                  <div className="space-y-2">
-                    <input
-                      type="text"
-                      value={editingValue}
-                      onChange={(e) => setEditingValue(e.target.value)}
-                      className="w-full rounded-lg border border-pink-500 bg-white px-3 py-2 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-pink-500"
-                      placeholder="Enter offer text"
-                    />
-                    <div className="flex gap-2">
-                      <button
-                        onClick={handleSaveEdit}
-                        className="flex-1 px-3 py-2 rounded-lg bg-pink-500 text-white font-bold text-sm hover:bg-pink-600"
-                      >
-                        Save
-                      </button>
-                      <button
-                        onClick={() => setEditingOffer(null)}
-                        className="flex-1 px-3 py-2 rounded-lg border border-[#E5E7EB] bg-white text-[#111111] font-bold text-sm hover:bg-gray-50"
-                      >
-                        Cancel
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="space-y-2">
-                    <div className="flex gap-2">
-                      <select
-                        value={selectedOffer}
-                        onChange={(e) => setSelectedOffer(e.target.value)}
-                        className="flex-1 rounded-lg border border-[#E5E7EB] bg-white px-3 py-2 text-sm font-bold text-[#111111] focus:outline-none focus:ring-2 focus:ring-pink-500"
-                      >
-                        {offers.map((offer) => (
-                          <option key={offer} value={offer}>{offer}</option>
-                        ))}
-                      </select>
-                      <button
-                        onClick={() => handleEditOffer(selectedOffer)}
-                        className="px-3 py-2 rounded-lg border border-[#E5E7EB] bg-white font-bold text-sm hover:bg-gray-50 transition-colors"
-                        title="Edit selected offer"
-                      >
-                        ✏️
-                      </button>
-                      <button
-                        onClick={() => handleDeleteOffer(selectedOffer)}
-                        className="px-3 py-2 rounded-lg border border-red-200 bg-red-50 hover:bg-red-100 font-bold text-sm text-red-700 transition-colors"
-                        title="Delete selected offer"
-                      >
-                        🗑️
-                      </button>
-                    </div>
-                    <button
-                      onClick={handleAddOffer}
-                      className="w-full px-3 py-2 rounded-lg border border-dashed border-pink-300 bg-pink-50 text-pink-700 font-bold text-xs hover:bg-pink-100 transition-colors"
-                    >
-                      + Add Offer
-                    </button>
-                  </div>
-                )}
-              </div>
-
-              <div className="mb-4">
-                <label className="block text-xs font-bold text-[#6B7280] mb-2">CUSTOMIZE MESSAGE</label>
-                <textarea
-                  value={customMessage}
-                  onChange={(e) => setCustomMessage(e.target.value)}
-                  placeholder="Leave blank to use default message"
-                  className="w-full rounded-lg border border-[#E5E7EB] bg-white px-3 py-2 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-pink-500"
-                  rows={3}
-                />
-              </div>
-
-              <div className="rounded-lg border border-green-200 bg-green-50 p-4">
-                <div className="flex items-center justify-between mb-2">
-                  <p className="text-xs font-bold text-[#6B7280]">MESSAGE PREVIEW</p>
-                  {!editingMessage && (
-                    <button
-                      onClick={handleEditMessage}
-                      className="px-2 py-1 rounded text-xs font-bold text-green-700 hover:bg-green-100 transition-colors"
-                      title="Edit message"
-                    >
-                      ✏️ Edit
-                    </button>
-                  )}
-                </div>
-                {editingMessage ? (
-                  <div className="space-y-2">
-                    <textarea
-                      value={messageToEdit}
-                      onChange={(e) => setMessageToEdit(e.target.value)}
-                      className="w-full rounded-lg border border-green-500 bg-white px-3 py-2 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-green-500"
-                      rows={6}
-                    />
-                    <div className="flex gap-2">
-                      <button
-                        onClick={handleSaveMessage}
-                        className="flex-1 px-3 py-2 rounded-lg bg-green-600 text-white font-bold text-sm hover:bg-green-700"
-                      >
-                        Save Message
-                      </button>
-                      <button
-                        onClick={() => setEditingMessage(false)}
-                        className="flex-1 px-3 py-2 rounded-lg border border-[#E5E7EB] bg-white text-[#111111] font-bold text-sm hover:bg-gray-50"
-                      >
-                        Cancel
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="text-sm text-[#111111] whitespace-pre-wrap leading-relaxed">
-                    {previewMessage}
-                  </div>
-                )}
-              </div>
-            </div>
+          <div className="space-y-4 min-w-0">
+            <EventOfferPanel title="Birthday Offer Message" tone="pink" offerSettings={offerSettings} />
           </div>
         </div>
       )}

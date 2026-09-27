@@ -1,9 +1,10 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { Wallet, Volume2, VolumeX, CheckCircle2 } from 'lucide-react'
 import { creditService, type OutstandingCreditOrder } from '../../services/creditService'
-import { formatCurrency } from '../../lib/retail'
+import { formatCurrency, formatInvoiceNo } from '../../lib/retail'
 import { useSound } from '../../context/SoundContext'
 import { useAlarmQueueStore } from '../../store/alarmQueueStore'
+import { ModalPortal } from '../ModalPortal'
 
 /**
  * Mirrors ExpiryAlarmModal: fires its check on mount (i.e. right after
@@ -127,7 +128,7 @@ export default function CreditDueAlarmModal({ triggerKey }: { triggerKey?: strin
       : `${dueTodayCount} credit sale${dueTodayCount > 1 ? 's' : ''} due today — ${formatCurrency(totalDue)} total`
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4">
+    <ModalPortal><div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4">
       <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl overflow-hidden border-2 border-amber-500">
         <div className="px-5 py-4 flex items-center justify-between gap-3 bg-gradient-to-r from-amber-600 to-red-500">
           <div className="flex items-center gap-3 min-w-0">
@@ -160,7 +161,7 @@ export default function CreditDueAlarmModal({ triggerKey }: { triggerKey?: strin
                     </div>
                     <div className="min-w-0">
                       <p className="font-black text-sm text-[#111111] break-words">{o.customer_name}</p>
-                      <p className="text-[11px] text-[#6B7280] truncate">{o.invoice_no} • {formatCurrency(o.total)}</p>
+                      <p className="text-[11px] text-[#6B7280] truncate">{formatInvoiceNo(o.invoice_no)} • {formatCurrency(o.total)}</p>
                     </div>
                   </div>
                   <div className="text-right shrink-0 flex flex-col items-end gap-1">
@@ -190,6 +191,6 @@ export default function CreditDueAlarmModal({ triggerKey }: { triggerKey?: strin
           </div>
         </div>
       </div>
-    </div>
+    </div></ModalPortal>
   )
 }

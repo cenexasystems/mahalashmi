@@ -1,6 +1,7 @@
 import React from 'react'
 import { AlertCircle, ShoppingCart, X, ScanBarcode } from 'lucide-react'
 import { useNavigationStore } from '../../store/navigationStore'
+import { ModalPortal } from '../ModalPortal'
 
 export interface BarcodeRedirectDialogProps {
   onNavigateToBilling?: (barcode: string) => void
@@ -29,7 +30,7 @@ export const BarcodeRedirectDialog: React.FC<BarcodeRedirectDialogProps> = ({
   }
 
   return (
-    <div
+    <ModalPortal><div
       onClick={(e) => {
         if (e.target === e.currentTarget) handleCancel()
       }}
@@ -93,6 +94,6 @@ export const BarcodeRedirectDialog: React.FC<BarcodeRedirectDialogProps> = ({
           </button>
         </div>
       </div>
-    </div>
+    </div></ModalPortal>
   )
 }

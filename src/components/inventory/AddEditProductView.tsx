@@ -22,8 +22,9 @@ import { useSound } from '../../context/SoundContext'
 import { getErrorMessage } from '../../lib/errorMessage'
 import { normalizeBarcode } from '../../lib/barcode'
 import { roundTo } from '../../lib/retail'
-import { UNIT_OPTIONS, UNIT_GROUPS, findUnitOption } from '../../lib/units'
+import { UNIT_OPTIONS, findUnitOption } from '../../lib/units'
 import { DateInputDDMMYYYY } from '../DateInputDDMMYYYY'
+import { UnitSelect } from './UnitSelect'
 
 // Makes the shared date input match the other fields in this form (height, padding,
 // background, text size); `!` is needed to beat the component's own defaults.
@@ -982,25 +983,16 @@ export const AddEditProductView: React.FC<{ onStockUpdated?: () => void }> = ({ 
                     <Ruler size={13} className="text-[var(--accent)]" /> 2. What unit is it sold in?
                   </label>
                   <div className="flex flex-col sm:flex-row gap-2.5">
-                    <select
+                    <UnitSelect
                       value={unitChoice}
-                      onChange={(e) => {
-                        const nextUnit = UNIT_OPTIONS.find((o) => o.value === e.target.value)
-                        setUnitChoice(e.target.value)
+                      onChange={(next) => {
+                        const nextUnit = UNIT_OPTIONS.find((o) => o.value === next)
+                        setUnitChoice(next)
                         if (nextUnit && nextUnit.unitType !== 'weight' && nextUnit.unitType !== 'volume') {
                           setSoldByWeight(false)
                         }
                       }}
-                      className="w-full sm:max-w-xs h-10 px-3.5 rounded-xl border border-gray-300 bg-white text-xs font-bold text-gray-900 outline-none focus:border-[#0A0A0A] touch-manipulation appearance-none relative z-20"
-                    >
-                      {UNIT_GROUPS.map((group) => (
-                        <optgroup key={group} label={group}>
-                          {UNIT_OPTIONS.filter((o) => o.group === group).map((o) => (
-                            <option key={o.value} value={o.value}>{o.label}</option>
-                          ))}
-                        </optgroup>
-                      ))}
-                    </select>
+                    />
                     {unitChoice === 'custom' && (
                       <input
                         type="text"

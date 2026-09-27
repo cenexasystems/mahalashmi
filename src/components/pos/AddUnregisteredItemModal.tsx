@@ -3,6 +3,7 @@ import { X, PlusCircle, AlertCircle } from 'lucide-react'
 import { useLangStore } from '../../store/langStore'
 import { getErrorMessage } from '../../lib/errorMessage'
 import { UNIT_OPTIONS, UNIT_GROUPS } from '../../lib/units'
+import { ModalPortal } from '../ModalPortal'
 
 interface Props {
   isOpen: boolean
@@ -95,7 +96,7 @@ export const AddUnregisteredItemModal: React.FC<Props> = ({ isOpen, onClose, onS
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs">
+    <ModalPortal><div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs">
       <div className="bg-white rounded-2xl w-full max-w-md max-h-[90vh] flex flex-col shadow-2xl overflow-hidden border border-[#B7E1BE]/50 animate-in fade-in zoom-in-95">
         {/* Header */}
         <div className="px-4 sm:px-5 py-3 border-b border-gray-200 flex items-center justify-between bg-[#FBFAF6] shrink-0">
@@ -261,6 +262,6 @@ export const AddUnregisteredItemModal: React.FC<Props> = ({ isOpen, onClose, onS
           </div>
         </form>
       </div>
-    </div>
+    </div></ModalPortal>
   )
 }
