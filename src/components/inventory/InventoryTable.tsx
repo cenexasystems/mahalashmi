@@ -567,18 +567,16 @@ export const InventoryTable: React.FC = () => {
                         {/* Actions */}
                         <td className="p-3.5 text-right">
                           <div className="flex items-center justify-end gap-1.5">
-                            {/* Adjust Stock (Admin Only) */}
-                            {role === 'admin' && (
-                              <button
-                                type="button"
-                                onClick={() => openAdjust(item)}
-                                className="px-2.5 py-1.5 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-100 text-[11px] font-bold transition-colors cursor-pointer"
-                                title="Adjust Stock"
-                              >
-                                <SlidersHorizontal size={13} className="inline mr-1" />
-                                Adjust
-                              </button>
-                            )}
+                            {/* Adjust Stock (admin and staff) */}
+                            <button
+                              type="button"
+                              onClick={() => openAdjust(item)}
+                              className="px-2.5 py-1.5 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-100 text-[11px] font-bold transition-colors cursor-pointer"
+                              title="Adjust Stock"
+                            >
+                              <SlidersHorizontal size={13} className="inline mr-1" />
+                              Adjust
+                            </button>
 
                             {/* Stock History */}
                             <button
