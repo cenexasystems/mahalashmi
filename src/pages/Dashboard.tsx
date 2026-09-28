@@ -6,8 +6,8 @@ import {
   MessageCircle, ChevronDown, Eye, FileText, Printer, X, Layers, Receipt, Settings, Bell, Wallet, Gift,
 } from 'lucide-react'
 
-// Custom Malaysian Ringgit icon — replaces the generic dollar-sign icon
-const RMIcon = ({ size = 16, className = '' }: { size?: number; className?: string }) => (
+// Rupee icon for money KPIs
+const RupeeIcon = ({ size = 16, className = '' }: { size?: number; className?: string }) => (
   <svg
     width={size}
     height={size}
@@ -18,19 +18,19 @@ const RMIcon = ({ size = 16, className = '' }: { size?: number; className?: stri
     strokeLinecap="round"
     strokeLinejoin="round"
     className={className}
-    aria-label="Malaysian Ringgit"
+    aria-label="Indian Rupee"
   >
     <rect x="2" y="2" width="20" height="20" rx="4" />
     <text
       x="12"
-      y="16"
+      y="16.5"
       textAnchor="middle"
-      fontSize="9"
+      fontSize="13"
       fontWeight="bold"
       stroke="none"
       fill="currentColor"
       fontFamily="Arial, sans-serif"
-    >RM</text>
+    >₹</text>
   </svg>
 )
 import { Link, useLocation, useNavigate } from 'react-router-dom'
@@ -48,7 +48,6 @@ import { toDaysOverdue } from '../services/creditService'
 import Pos from './Pos'
 import AdvanceOrders from './AdvanceOrders'
 import ExpiryAlerts from './ExpiryAlerts'
-import CustomerEvents from './CustomerEvents'
 import BirthdayDashboard from '../components/dashboard/BirthdayDashboard'
 import type { AdvanceOrder } from '../services/advanceOrderService'
 import { InventoryTable } from '../components/inventory/InventoryTable'
@@ -101,6 +100,8 @@ type DashboardCoupon = {
   min_order_value: number
 }
 type TabKey = 'overview' | 'whatsapp' | 'pos_analytics' | 'billing' | 'advance_orders' | 'inventory' | 'expiry_alerts' | 'expenses' | 'coupons' | 'users' | 'history' | 'settings' | 'outstanding_credits' | 'customer_events'
+// Tabs a staff login may open (menu clicks and ?tab= links alike)
+const STAFF_TABS: TabKey[] = ['billing', 'inventory', 'advance_orders', 'expiry_alerts', 'history', 'customer_events']
 type PosAnalyticsTab = 'revenue' | 'today' | 'products' | 'categories' | 'coupons'
 type ProfileUser = { id: string; email: string; name: string; mobile: string; role: string; created_at: string }
 
@@ -188,7 +189,7 @@ export default function Dashboard() {
   const [tab, setTab] = useState<TabKey>(() => {
     const params = new URLSearchParams(location.search)
     const tabParam = params.get('tab') as TabKey | null
-    if (tabParam) return tabParam
+    if (tabParam && (role !== 'staff' || STAFF_TABS.includes(tabParam))) return tabParam
     if (location.pathname === '/whatsapp-center') return 'whatsapp'
     if (location.pathname === '/pos-analytics' && role === 'admin') return 'pos_analytics'
     if (location.pathname === '/advance-orders') return 'advance_orders'
@@ -276,8 +277,7 @@ export default function Dashboard() {
 
   useEffect(() => {
     if (role === 'staff') {
-      const staffAllowedTabs: TabKey[] = ['billing', 'inventory', 'advance_orders', 'expiry_alerts', 'history', 'customer_events']
-      if (!staffAllowedTabs.includes(tab)) {
+      if (!STAFF_TABS.includes(tab)) {
         setTab('billing')
         navigate('/dashboard', { replace: true })
       }
@@ -286,8 +286,7 @@ export default function Dashboard() {
 
   const handleTabClick = (tabKey: TabKey) => {
     if (role === 'staff') {
-      const staffAllowedTabs: TabKey[] = ['billing', 'inventory', 'advance_orders', 'expiry_alerts', 'history', 'customer_events']
-      if (!staffAllowedTabs.includes(tabKey)) return
+      if (!STAFF_TABS.includes(tabKey)) return
     }
     setTab(tabKey)
     setCurrentTab(tabKey)
@@ -380,9 +379,11 @@ export default function Dashboard() {
   // Analytics (date-aware)
   const analytics = useMemo(() => {
     // Apply global date filter
+    // created_at is a UTC timestamp; compare its local (IST) calendar date, or bills
+    // between midnight and 5:30 AM would land on the previous day.
     let dated = orders
-    if (analyticsDateFrom) dated = dated.filter(o => o.created_at >= `${analyticsDateFrom}T00:00:00`)
-    if (analyticsDateTo)   dated = dated.filter(o => o.created_at <= `${analyticsDateTo}T23:59:59`)
+    if (analyticsDateFrom) dated = dated.filter(o => toLocalDateStr(new Date(o.created_at)) >= analyticsDateFrom)
+    if (analyticsDateTo)   dated = dated.filter(o => toLocalDateStr(new Date(o.created_at)) <= analyticsDateTo)
 
     // Classify
     const nonCancelled = dated.filter(o => normalizeStatus(o.status) !== 'cancelled')
@@ -406,9 +407,11 @@ export default function Dashboard() {
       .filter(o => !o.is_credit || o.credit_status === 'paid')
     // Channel is determined by order_mode. Older orders can use a different
     // order_type, so requiring exactly `pos_sale` hides valid online bills.
-    const offlinePOS  = billableCompleted.filter(o => normalizeOrderMode(o.order_mode) === 'offline' && normalizeOrderType(o.order_type) !== 'manual_sale')
-    const onlinePOS   = billableCompleted.filter(o => normalizeOrderMode(o.order_mode) === 'online')
-    const manualSales = billableCompleted.filter(o => normalizeOrderType(o.order_type) === 'manual_sale')
+    // Manual sales are their own channel, so they are kept out of both offline and online.
+    const isManualSale = (o: DashboardOrder) => normalizeOrderType(o.order_type) === 'manual_sale'
+    const offlinePOS  = billableCompleted.filter(o => normalizeOrderMode(o.order_mode) === 'offline' && !isManualSale(o))
+    const onlinePOS   = billableCompleted.filter(o => normalizeOrderMode(o.order_mode) === 'online' && !isManualSale(o))
+    const manualSales = billableCompleted.filter(isManualSale)
 
     // Revenue (WhatsApp never included)
     const completedRevenue   = billableCompleted.reduce((s, o) => s + getOrderTotal(o), 0)
@@ -438,10 +441,10 @@ export default function Dashboard() {
 
     const todayKey  = toLocalDateKey(new Date())
     const monthKey  = todayKey.slice(0, 7)
-    const todaySales   = orders.filter(o => isCompletedStatus(o.status) && o.order_type !== 'whatsapp_request' && toLocalDateKey(o.created_at) === todayKey).reduce((s, o) => s + getOrderTotal(o), 0)
-
-    // Today-specific analytics (for TODAY'S SALES tab)
-    const todayOrders = billableCompleted.filter(o => toLocalDateKey(o.created_at) === todayKey)
+    // Today-specific analytics (for TODAY'S SALES tab). Same rules as Total Revenue
+    // (no WhatsApp requests, no unpaid credit), independent of the period filter.
+    const todayOrders = allBillableCompleted.filter(o => toLocalDateKey(o.created_at) === todayKey)
+    const todaySales  = todayOrders.reduce((s, o) => s + getOrderTotal(o), 0)
     const todayCompletedOrdersCount = todayOrders.length
     const todayItemsSold = todayOrders.reduce((s, o) => {
       const items = parseOrderItems(o.items)
@@ -479,9 +482,10 @@ export default function Dashboard() {
     const todayBills = todayOrders.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()).slice(0, 10)
 
     // Today's channel breakdown
-    const todayOffline = todayOrders.filter(o => normalizeOrderType(o.order_type) === 'pos_sale' && normalizeOrderMode(o.order_mode) !== 'online')
-    const todayOnline = todayOrders.filter(o => normalizeOrderType(o.order_type) === 'pos_sale' && normalizeOrderMode(o.order_mode) === 'online')
-    const todayManual = todayOrders.filter(o => normalizeOrderType(o.order_type) === 'manual_sale')
+    // Same channel rules as the overall split, so offline + online + manual = today's total
+    const todayOffline = todayOrders.filter(o => normalizeOrderMode(o.order_mode) === 'offline' && !isManualSale(o))
+    const todayOnline = todayOrders.filter(o => normalizeOrderMode(o.order_mode) === 'online' && !isManualSale(o))
+    const todayManual = todayOrders.filter(isManualSale)
     const todayOfflineRevenue = todayOffline.reduce((s, o) => s + getOrderTotal(o), 0)
     const todayOnlineRevenue = todayOnline.reduce((s, o) => s + getOrderTotal(o), 0)
     const todayManualRevenue = todayManual.reduce((s, o) => s + getOrderTotal(o), 0)
@@ -500,7 +504,7 @@ export default function Dashboard() {
       return { hour: `${h12} ${ampm}`, key: h, qty: productHourlyMap.get(h) || 0 }
     })
 
-    const monthlyRevenue = billableCompleted.filter(o => toLocalMonthKey(o.created_at) === monthKey).reduce((s, o) => s + getOrderTotal(o), 0)
+    const monthlyRevenue = allBillableCompleted.filter(o => toLocalMonthKey(o.created_at) === monthKey).reduce((s, o) => s + getOrderTotal(o), 0)
 
     // Item-level analytics: items saved on each counted bill. The older order_items
     // table only holds rows for some bills, so it is used only for bills that
@@ -530,9 +534,8 @@ export default function Dashboard() {
     const prodCatLookup = new Map(products.map(p => [String(p.name || '').trim().toLowerCase(), p.category || 'Uncategorized']))
 
     let totalProductsSold = 0
-    let totalManualRevenue = 0
 
-    completedItems.forEach(({ product_name, category, quantity, line_total, order_id, is_manual }) => {
+    completedItems.forEach(({ product_name, category, quantity, line_total, order_id }) => {
       const qty = toNumber(quantity, 0)
       const rev = toNumber(line_total, 0)
       totalProductsSold += qty
@@ -551,8 +554,6 @@ export default function Dashboard() {
       const catName = category || prodCatLookup.get(mainName.toLowerCase()) || 'Uncategorized'
       const cc = categoryMap.get(catName) || { name: catName, qty: 0, revenue: 0 }
       cc.qty += qty; cc.revenue += rev; categoryMap.set(catName, cc)
-
-      if (is_manual) totalManualRevenue += rev
     })
 
     for (const [key, orderSet] of productOrders) {
@@ -621,7 +622,7 @@ export default function Dashboard() {
     const channelDistribution = [
       { name: 'Offline Bills', value: posRevenue, color: '#f97316' },
       { name: 'Online Bills',  value: onlinePosRevenue, color: '#3b82f6' },
-      { name: 'Manual Sales',  value: manualRevenue || totalManualRevenue, color: '#8b5cf6' },
+      { name: 'Manual Sales',  value: manualRevenue, color: '#8b5cf6' },
     ]
 
     const couponMap = new Map<string, { code: string; usage: number; discounts: number }>()
@@ -720,7 +721,7 @@ export default function Dashboard() {
       onlineBillCount: onlinePOS.length,
       monthDailySales,
       offlineOrderCount: offlinePOS.length,
-      manualRevenue: manualRevenue || totalManualRevenue,
+      manualRevenue,
       monthlyRevenue,
       totalProductsSold,
       bestCategory,
@@ -767,11 +768,24 @@ export default function Dashboard() {
     setLoading(true)
     try {
       const productsPromise = fetchProducts(true)
+      // Supabase returns at most 1000 rows per request, so page through all orders;
+      // otherwise revenue and the year chart silently stop counting older bills.
+      const fetchAllOrders = async () => {
+        const PAGE = 1000
+        const rows: Record<string, unknown>[] = []
+        for (let from = 0; ; from += PAGE) {
+          const res = await supabase.from('orders')
+            .select('id, invoice_no, customer_name, phone, address, created_at, total, status, order_mode, order_type, user_id, items, coupon_code, discount_amount, manual_discount_amount, delivery_charge, total_gst, gst_amount, payment_mode, payment_method, split_details, invoice_pdf_url, remarks, reference_number, is_credit, credit_due_date, credit_status, credit_paid_at')
+            .order('created_at', { ascending: false })
+            .order('id', { ascending: true })
+            .range(from, from + PAGE - 1)
+          if (res.error) return { data: null, error: res.error }
+          rows.push(...(res.data || []))
+          if (!res.data || res.data.length < PAGE) return { data: rows, error: null }
+        }
+      }
       const [oRes, couponRes, expList] = await Promise.all([
-        supabase.from('orders')
-          .select('id, invoice_no, customer_name, phone, address, created_at, total, status, order_mode, order_type, user_id, items, coupon_code, discount_amount, manual_discount_amount, delivery_charge, total_gst, gst_amount, payment_mode, payment_method, split_details, invoice_pdf_url, remarks, reference_number, is_credit, credit_due_date, credit_status, credit_paid_at')
-          .order('created_at', { ascending: false })
-          .limit(1000),
+        fetchAllOrders(),
         supabase.from('coupons')
           .select('id, code, percentage, is_active, expiry_date, usage_limit, usage_count, min_order_value')
           .order('created_at', { ascending: false }),
@@ -784,7 +798,9 @@ export default function Dashboard() {
       setCoupons((couponRes.data || []) as DashboardCoupon[])
       setExpenses(expList || [])
 
-      const orderIds = mappedOrders.map(o => o.id).filter(Boolean)
+      // The legacy order_items table is only used for bills with no items stored on
+      // the bill, so only those ids are sent (sending every id overflows the URL).
+      const orderIds = mappedOrders.filter(o => parseOrderItems(o.items).length === 0).map(o => o.id).filter(Boolean)
       if (orderIds.length > 0) {
         let oi: unknown[] | null = null
         let orderItemsError: unknown = null
@@ -809,6 +825,8 @@ export default function Dashboard() {
           line_total: toNumber((r as Record<string,unknown>).line_total, 0),
           is_manual: Boolean((r as Record<string,unknown>).is_manual),
         })))
+      } else {
+        setOrderItems([])
       }
 
       await productsPromise
@@ -1507,7 +1525,7 @@ export default function Dashboard() {
             {/* Revenue KPIs - 6 cards in 3 columns */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {[
-                { label: l('Total Revenue', 'மொத்த வருவாய்'),    value: formatCurrency(analytics.totalCompletedRevenue), from: 'from-emerald-50 via-emerald-50/80 to-teal-50', iconBg: 'from-emerald-400 to-teal-500', icon: <RMIcon size={16} /> },
+                { label: l('Total Revenue', 'மொத்த வருவாய்'),    value: formatCurrency(analytics.totalCompletedRevenue), from: 'from-emerald-50 via-emerald-50/80 to-teal-50', iconBg: 'from-emerald-400 to-teal-500', icon: <RupeeIcon size={16} /> },
                 {
                   label: analytics.isProfitable ? l('Net Profit', 'நிகர லாபம்') : l('Net Loss', 'நிகர நஷ்டம்'),
                   value: formatCurrency(Math.abs(analytics.netProfit)),
@@ -1520,8 +1538,8 @@ export default function Dashboard() {
                 },
                 { label: l('Total Expenses', 'மொத்த செலவு'),    value: formatCurrency(analytics.totalExpenses),         from: 'from-amber-50 via-amber-50/80 to-orange-50', iconBg: 'from-amber-400 to-orange-500', icon: <Receipt size={16} /> },
                 { label: l("Today's Sales",  'இன்றைய விற்பனை'),  value: formatCurrency(analytics.todaySales),            from: 'from-blue-50 via-blue-50/80 to-indigo-50', iconBg: 'from-blue-400 to-indigo-500', icon: <TrendingUp size={16} /> },
-                { label: l('Offline Revenue', 'ஆஃப்லைன் வருவாய்'), value: formatCurrency(analytics.posRevenue),           from: 'from-orange-50 via-orange-50/80 to-amber-50', iconBg: 'from-orange-400 to-amber-500', icon: <RMIcon size={16} /> },
-                { label: l('Online Revenue',  'ஆன்லைன் வருவாய்'),  value: formatCurrency(analytics.onlinePosRevenue),     from: 'from-cyan-50 via-cyan-50/80 to-sky-50', iconBg: 'from-cyan-400 to-sky-500', icon: <RMIcon size={16} /> },
+                { label: l('Offline Revenue', 'ஆஃப்லைன் வருவாய்'), value: formatCurrency(analytics.posRevenue),           from: 'from-orange-50 via-orange-50/80 to-amber-50', iconBg: 'from-orange-400 to-amber-500', icon: <RupeeIcon size={16} /> },
+                { label: l('Online Revenue',  'ஆன்லைன் வருவாய்'),  value: formatCurrency(analytics.onlinePosRevenue),     from: 'from-cyan-50 via-cyan-50/80 to-sky-50', iconBg: 'from-cyan-400 to-sky-500', icon: <RupeeIcon size={16} /> },
               ].map((card, i) => (
                 <div key={i} className={`bg-gradient-to-br ${card.from} rounded-2xl border border-white/40 p-4 sm:p-5 shadow-sm backdrop-blur-sm flex flex-col justify-between`}>
                   <div className="flex items-center justify-between gap-1 mb-2">
@@ -1785,7 +1803,7 @@ export default function Dashboard() {
                 <div className="flex items-center gap-2">
                   <MessageCircle size={17} className="text-blue-600" />
                   <h3 className="text-base font-black text-[#111111]">{l('Customer Requests', 'வாடிக்கையாளர் கோரிக்கைகள்')}</h3>
-                  <span className="text-[10px] font-bold text-[#9BAB9A] bg-[#F9FAFB] px-2 py-0.5 rounded-full">{l('RM0 revenue - status updates only', 'RM0 வருவாய் - நிலை மட்டும்')}</span>
+                  <span className="text-[10px] font-bold text-[#9BAB9A] bg-[#F9FAFB] px-2 py-0.5 rounded-full">{l('₹0 revenue - status updates only', '₹0 வருவாய் - நிலை மட்டும்')}</span>
                 </div>
                 <span className="text-[12px] text-[#374151] font-bold">{analytics.onlineRequestOrders.length} {l('requests', 'கோரிக்கைகள்')}</span>
               </div>
@@ -2285,7 +2303,7 @@ export default function Dashboard() {
                       label: 'Total Revenue',
                       helper: 'POS + manual sales combined',
                       value: formatCurrency(analytics.totalCompletedRevenue),
-                      icon: <RMIcon size={16} />,
+                      icon: <RupeeIcon size={16} />,
                       color: 'text-emerald-500',
                       bg: 'bg-emerald-50',
                     },
@@ -2319,7 +2337,7 @@ export default function Dashboard() {
                       label: 'Offline Revenue',
                       helper: 'Walk-in POS sales',
                       value: formatCurrency(analytics.posRevenue),
-                      icon: <RMIcon size={16} />,
+                      icon: <RupeeIcon size={16} />,
                       color: 'text-cyan-500',
                       bg: 'bg-cyan-50',
                     },
@@ -2351,7 +2369,7 @@ export default function Dashboard() {
                       label: 'Average Revenue Per Bill',
                       helper: 'Average per bill',
                       value: formatCurrency(analytics.averageRevenuePerBill),
-                      icon: <RMIcon size={16} />,
+                      icon: <RupeeIcon size={16} />,
                       color: 'text-emerald-500',
                       bg: 'bg-emerald-50',
                     },
@@ -2390,7 +2408,7 @@ export default function Dashboard() {
                   <div className="xl:col-span-2 bg-white rounded-card border border-borderLight p-6 shadow-soft">
                     <div className="flex items-center justify-between gap-4 mb-4">
                       <h3 className="text-[16px] font-bold text-[#111111]">Revenue Trend {analytics.chartYear}</h3>
-                      <span className="text-[12px] font-bold text-[#0A0A0A] bg-red-50 px-2.5 py-1 rounded-md">Avg {formatCurrency(analytics.monthlyRevenue || 0)}/mo</span>
+                      <span className="text-[12px] font-bold text-[#0A0A0A] bg-red-50 px-2.5 py-1 rounded-md">This month {formatCurrency(analytics.monthlyRevenue || 0)}</span>
                     </div>
                     <div className="h-[192px] w-full min-w-0 relative">
                       <ResponsiveContainer width="100%" height={192} minWidth={0} minHeight={0}>
@@ -2524,7 +2542,7 @@ export default function Dashboard() {
                 {/* Key metrics box grid row */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                   {[
-                    { label: "TODAY'S REVENUE", value: formatCurrency(analytics.todaySales), icon: <RMIcon size={20} className="text-emerald-700" />, bg: 'bg-emerald-50', border: 'border-emerald-100' },
+                    { label: "TODAY'S REVENUE", value: formatCurrency(analytics.todaySales), icon: <RupeeIcon size={20} className="text-emerald-700" />, bg: 'bg-emerald-50', border: 'border-emerald-100' },
                     { label: "COMPLETED ORDERS", value: String(analytics.todayCompletedOrdersCount), icon: <ShoppingCart size={20} className="text-blue-700" />, bg: 'bg-blue-50', border: 'border-blue-100' },
                     { label: "ITEMS SOLD", value: String(Math.round(analytics.todayItemsSold)), icon: <Package size={20} className="text-purple-700" />, bg: 'bg-purple-50', border: 'border-purple-100' },
                     { label: "AVG ORDER VALUE", value: formatCurrency(analytics.todayAvgOrderValue), icon: <Trophy size={20} className="text-amber-700" />, bg: 'bg-amber-50', border: 'border-amber-100' },
@@ -2648,9 +2666,9 @@ export default function Dashboard() {
                 {/* Key metrics row: Revenue is 1st KPI card */}
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                   {[
-                    { label: 'Total Product Revenue', value: formatCurrency(analytics.totalCompletedRevenue), icon: <RMIcon size={18} />, from: 'from-emerald-500 to-teal-600' },
+                    { label: 'Total Product Revenue', value: formatCurrency(analytics.totalCompletedRevenue), icon: <RupeeIcon size={18} />, from: 'from-emerald-500 to-teal-600' },
                     { label: 'Total Products Sold', value: String(Math.round(analytics.totalProductsSold)), icon: <Package size={18} />, from: 'from-blue-500 to-indigo-600' },
-                    { label: 'Average Product Revenue', value: `${formatCurrency(analytics.averageProductRevenue)}`, icon: <RMIcon size={18} />, from: 'from-violet-500 to-purple-600' },
+                    { label: 'Average Product Revenue', value: `${formatCurrency(analytics.averageProductRevenue)}`, icon: <RupeeIcon size={18} />, from: 'from-violet-500 to-purple-600' },
                     { label: 'Top Product', value: analytics.bestProduct, icon: <Trophy size={18} />, from: 'from-amber-500 to-orange-600' },
                   ].map((card, i) => (
                     <div key={i} className={`relative overflow-hidden rounded-2xl p-5 shadow-lg border border-white/20 bg-gradient-to-br ${card.from}`}>
@@ -2799,7 +2817,7 @@ export default function Dashboard() {
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                   {[
                     { label: 'Coupons Used', value: String(analytics.totalCouponOrders), icon: <ShoppingCart size={18} />, from: 'from-emerald-500 to-teal-600' },
-                    { label: 'Total Discounts Given', value: formatCurrency(analytics.totalCouponDiscounts), icon: <RMIcon size={18} />, from: 'from-blue-500 to-indigo-600' },
+                    { label: 'Total Discounts Given', value: formatCurrency(analytics.totalCouponDiscounts), icon: <RupeeIcon size={18} />, from: 'from-blue-500 to-indigo-600' },
                     { label: 'Usage Rate', value: `${analytics.couponUsageRate.toFixed(1)}%`, icon: <TrendingUp size={18} />, from: 'from-violet-500 to-purple-600' },
                     { label: 'Unique Coupons', value: String(analytics.topCoupons.length), icon: <Trophy size={18} />, from: 'from-amber-500 to-orange-600' },
                   ].map((card, i) => (
@@ -3427,7 +3445,7 @@ export default function Dashboard() {
 
                             <p className="text-[12px] font-semibold text-[var(--accent)]">
                               {coupon.percentage}% off
-                              {coupon.min_order_value > 0 && ` • min RM${coupon.min_order_value}`}
+                              {coupon.min_order_value > 0 && ` • min ₹${coupon.min_order_value}`}
                             </p>
 
                             <p className="text-[11px] text-[#6C665C]">

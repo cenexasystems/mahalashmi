@@ -275,7 +275,7 @@ export const InventoryTable: React.FC = () => {
           </button>
         </div>
       ) : (
-        <div className="bg-white border border-[#B7E1BE] rounded-2xl p-4 shadow-sm flex items-center justify-between gap-3">
+        <div className="bg-white border border-[#B7E1BE] rounded-2xl p-4 shadow-sm flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2.5">
             <div className="w-9 h-9 rounded-xl bg-[#0A0A0A] text-[var(--accent)] flex items-center justify-center font-black">
               <Box size={18} />
@@ -285,6 +285,19 @@ export const InventoryTable: React.FC = () => {
               <p className="text-xs font-semibold text-gray-500">Live store product inventory and stock levels</p>
             </div>
           </div>
+
+          {/* Add Barcode is open to staff as well */}
+          <button
+            type="button"
+            onClick={() => {
+              setSelectedForReceive(null)
+              setShowReceiveModal(true)
+            }}
+            className="px-4 py-2.5 rounded-xl bg-[#0A0A0A] border border-[var(--accent)] text-[var(--accent)] text-xs font-black hover:bg-[#1A1A1A] transition-all shadow-md flex items-center gap-2 cursor-pointer shrink-0 whitespace-nowrap"
+            title="Generate & print barcodes for items"
+          >
+            <Printer size={15} /> Add Barcode
+          </button>
         </div>
       )}
 

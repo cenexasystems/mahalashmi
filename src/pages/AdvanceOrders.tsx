@@ -16,11 +16,11 @@ import {
 } from '../services/advanceOrderService'
 import { isInPreset } from '../lib/dateRanges'
 
-// Custom Malaysian Ringgit icon
-const RMIcon = ({ size = 20, className = '' }: { size?: number; className?: string }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className} aria-label="Malaysian Ringgit">
+// Rupee icon for money KPIs
+const RupeeIcon = ({ size = 20, className = '' }: { size?: number; className?: string }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className} aria-label="Indian Rupee">
     <rect x="2" y="2" width="20" height="20" rx="4" />
-    <text x="12" y="16" textAnchor="middle" fontSize="9" fontWeight="bold" stroke="none" fill="currentColor" fontFamily="Arial, sans-serif">₹</text>
+    <text x="12" y="16" textAnchor="middle" fontSize="13" fontWeight="bold" stroke="none" fill="currentColor" fontFamily="Arial, sans-serif">₹</text>
   </svg>
 )
 
@@ -234,7 +234,7 @@ export default function AdvanceOrders({ onOrderCompleted }: AdvanceOrdersProps =
 
   const cards = [
     ['Total Deposits', analytics.total, FileText, 'text-emerald-700 bg-emerald-50'], ['Pending Deposit Orders', analytics.pending, Clock3, 'text-amber-700 bg-amber-50'],
-    ['Total Deposit Amount', formatCurrency(analytics.deposits), RMIcon, 'text-fuchsia-700 bg-fuchsia-50'], ['Outstanding Balance', formatCurrency(analytics.outstanding), RMIcon, 'text-red-700 bg-red-50'],
+    ['Total Deposit Amount', formatCurrency(analytics.deposits), RupeeIcon, 'text-fuchsia-700 bg-fuchsia-50'], ['Outstanding Balance', formatCurrency(analytics.outstanding), RupeeIcon, 'text-red-700 bg-red-50'],
     ['Ready For Collection', analytics.ready, PackageCheck, 'text-blue-700 bg-blue-50'], ['Completed Deposit Orders', analytics.completed, CheckCircle2, 'text-emerald-700 bg-emerald-50'],
   ] as const
 
@@ -242,7 +242,8 @@ export default function AdvanceOrders({ onOrderCompleted }: AdvanceOrdersProps =
     <div className="flex flex-wrap items-center justify-between gap-3"><div><p className="text-xs font-black uppercase tracking-[.18em] text-emerald-600">Separate from sales</p><h2 className="text-2xl font-black text-[#273126]">Advance Orders</h2><p className="mt-1 text-sm text-[#6B7280]">Deposits never count as revenue. Full order value is recognized only after final payment.</p></div><div className="flex gap-2"><button onClick={() => void load()} className="rounded-xl border bg-white p-3 text-[#647064]" title="Refresh"><RefreshCw size={18}/></button></div></div>
     {error && <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">{error}</div>}
     {notice && <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700">{notice}</div>}
-    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">{cards.map(([label, value, Icon, color]) => <div key={label} className="rounded-2xl border border-[#ECE9E2] bg-white p-4 shadow-sm"><div className="flex items-center justify-between"><div><p className="text-[11px] font-black uppercase tracking-wide text-[#879086]">{label}</p><p className="mt-2 text-[17px] sm:text-2xl font-black text-[#273126] break-words">{value}</p></div><div className={`rounded-xl p-3 ${color}`}><Icon size={21}/></div></div></div>)}</div>
+    {/* Order and money summary cards are for admins only */}
+    {role !== 'staff' && <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">{cards.map(([label, value, Icon, color]) => <div key={label} className="rounded-2xl border border-[#ECE9E2] bg-white p-4 shadow-sm"><div className="flex items-center justify-between"><div><p className="text-[11px] font-black uppercase tracking-wide text-[#879086]">{label}</p><p className="mt-2 text-[17px] sm:text-2xl font-black text-[#273126] break-words">{value}</p></div><div className={`rounded-xl p-3 ${color}`}><Icon size={21}/></div></div></div>)}</div>}
     <div className="rounded-2xl border border-[#ECE9E2] bg-white p-4 shadow-sm"><div className="grid gap-3 lg:grid-cols-[1fr_auto_auto]"><label className="relative"><Search className="absolute left-3 top-3 text-[#9CA3AF]" size={17}/><input className={`${inputClass} pl-10`} value={search} onChange={e => setSearch(e.target.value)} placeholder="Search Deposit ID, customer, phone, product or status"/></label><div className="flex flex-wrap gap-2">{(['all','pending','ready','completed','cancelled'] as StatusFilter[]).map(value => <button key={value} onClick={() => setStatusFilter(value)} className={`rounded-lg px-3 py-2 text-xs font-black capitalize ${statusFilter === value ? 'bg-[var(--accent-dark)] text-white' : 'bg-[#F5F3F7] text-[#626B61]'}`}>{value}</button>)}</div><select className={inputClass} value={dateFilter} onChange={e => setDateFilter(e.target.value as DateFilter)}><option value="all">All Dates</option><option value="today">Today</option><option value="week">This Week</option><option value="month">This Month</option></select></div></div>
     <div className="rounded-2xl border border-[#ECE9E2] bg-white shadow-sm flex flex-col">
       <div className="overflow-x-auto overscroll-x-contain">
