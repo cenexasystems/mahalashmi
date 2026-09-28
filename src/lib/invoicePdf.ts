@@ -33,6 +33,17 @@ export type InvoicePdfData = {
 const money = (value: number) =>
   formatCurrency(Number(value || 0)).replace(/\s+/g, ' ').replace(/^[₹₹]\s*/, 'Rs. ')
 
+// Same for free text (payment mode, names, notes): ₹ -> "Rs." and characters the
+// built-in font cannot draw are dropped. One unsupported character makes jsPDF
+// letter-space the whole line ("P a y m e n t : ...") and push it off the page.
+const pdfText = (value: unknown) =>
+  String(value ?? '')
+    .replace(/₹\s*/g, 'Rs.')
+    .replace(/[—–]/g, '-')
+    .replace(/[^\x20-\x7E\xA0-\xFF]/g, '')
+    .replace(/\s{2,}/g, ' ')
+    .trim()
+
 /** Creates a compact A4 invoice that can be attached as a file to WhatsApp. */
 export function createInvoicePdf(data: InvoicePdfData): Blob {
   const formattedNo = formatInvoiceNo(data.invoiceNo)
@@ -92,18 +103,21 @@ export function createInvoicePdf(data: InvoicePdfData): Blob {
   doc.text(shopAddress, left + 24, y + 10, { maxWidth: 85 })
   doc.text(`Phone: ${shopPhone}`, left + 24, y + 18)
   doc.text(`Date: ${new Date(data.date).toLocaleDateString('en-IN')}`, right, y + 2, { align: 'right' })
-  doc.text(`Payment: ${data.paymentMode || 'POS'}`, right, y + 7, { align: 'right' })
+  // "Payment: Split (Card Rs.479.68 + Cash Rs.100)" wraps within the right column
+  const paymentLines = doc.splitTextToSize(pdfText(`Payment: ${data.paymentMode || 'POS'}`), 62) as string[]
+  doc.text(paymentLines, right, y + 7, { align: 'right' })
+  const afterPayment = y + 7 + paymentLines.length * 4
   if (isUnpaidCredit && dueDateLabel) {
     doc.setTextColor('#B91C1C')
-    doc.text(`Due: ${dueDateLabel}`, right, y + 12, { align: 'right' })
+    doc.text(`Due: ${dueDateLabel}`, right, afterPayment + 1, { align: 'right' })
     doc.setTextColor(muted)
   }
   if (isSettledCredit && paidDateLabel) {
     doc.setTextColor('#047857')
-    doc.text(`Paid: ${paidDateLabel}`, right, y + 12, { align: 'right' })
+    doc.text(`Paid: ${paidDateLabel}`, right, afterPayment + 1, { align: 'right' })
     doc.setTextColor(muted)
   }
-  y += 28
+  y += Math.max(28, afterPayment - y + 8)
 
   if (data.isCredit) {
     doc.setFillColor(isSettledCredit ? '#D1FAE5' : '#FEE2E2')
@@ -122,9 +136,9 @@ export function createInvoicePdf(data: InvoicePdfData): Blob {
     y += 16
   }
 
-  const customerName = String(data.customerName || 'Walk-in Customer').trim()
+  const customerName = pdfText(data.customerName) || 'Walk-in Customer'
   const customerPhone = data.phone ? formatPhoneDisplay(String(data.phone)) : '—'
-  const customerAddress = String(data.address || '').trim()
+  const customerAddress = pdfText(data.address)
   const customerNameLines = doc.splitTextToSize(customerName, 165) as string[]
   const customerAddressLines = customerAddress
     ? doc.splitTextToSize(`Address: ${customerAddress}`, 165) as string[]
@@ -165,7 +179,7 @@ export function createInvoicePdf(data: InvoicePdfData): Blob {
   data.items.forEach((raw, index) => {
     const item = normalizeStructuredOrderItem(raw)
     if (y > 260) { doc.addPage(); y = 20 }
-    const name = item.name || 'Item'
+    const name = pdfText(item.name) || 'Item'
     const nameLines = doc.splitTextToSize(name, 105) as string[]
     doc.setFont('helvetica', 'bold')
     doc.setFontSize(8)
@@ -183,7 +197,7 @@ export function createInvoicePdf(data: InvoicePdfData): Blob {
     doc.text(money(item.line_total), right - 4, y, { align: 'right' })
     y += Math.max(10, nameLines.length * 4 + 4)
     // Free gift with this item: its own line with the value struck through, marked FREE (not in the total)
-    const giftNote = String(item.special_offer_note || '').trim()
+    const giftNote = pdfText(item.special_offer_note)
     if (giftNote) {
       if (y > 270) { doc.addPage(); y = 20 }
       const giftValue = Number(item.special_offer_cost) || 0

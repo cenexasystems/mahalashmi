@@ -942,6 +942,7 @@ export default function Pos(props: PosProps = {}) {
   const printReceipt = (inv: InvoiceSnap) => {
     // Print a Bluetooth/thermal receipt directly
     printThermalReceipt({
+      paymentMode: inv.paymentMode,
       invoiceNo: inv.invoiceNo,
       date: inv.date,
       customerName: inv.customerName,

@@ -87,7 +87,6 @@ export const InventoryAnalyticsView: React.FC = () => {
       const columns: XlsxColumn[] = [
         { header: 'Product ID', width: 12 },
         { header: 'Product Name', width: 30 },
-        { header: 'Tamil Name', width: 24 },
         { header: 'Variant ID', width: 14 },
         { header: 'Variant Name (Size)', width: 20 },
         { header: 'Category', width: 18 },
@@ -112,7 +111,6 @@ export const InventoryAnalyticsView: React.FC = () => {
         return [
           it.product_id,
           it.name || '',
-          it.name_ta || '',
           it.variant_id || '',
           it.variant_name || '',
           it.category || 'General',

@@ -37,7 +37,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { isSupabaseConfigured, supabase } from '../lib/supabase'
 import { debounce } from '../lib/debounce'
 import { useAuthStore, useProductStore, useAdminAuthStore, useSettingsStore } from '../store/store'
-import { formatCurrency, normalizeOrderMode, toNumber } from '../lib/retail'
+import { formatPaymentMode, formatCurrency, normalizeOrderMode, toNumber } from '../lib/retail'
 import { normalizeStructuredOrderItem, formatInvoiceNo } from '../lib/retail'
 import { Invoice } from '../components/Invoice'
 import { printThermalReceipt } from '../lib/thermalPrint'
@@ -87,6 +87,7 @@ export type DashboardOrder = {
   coupon_code: string; discount_amount: number; manual_discount_amount: number; delivery_charge: number
   total_gst: number; payment_mode: string; payment_method?: string; invoice_pdf_url: string; remarks?: string; reference_number?: string
   is_credit?: boolean; credit_due_date?: string | null; credit_status?: string | null; credit_paid_at?: string | null
+  split_details?: Record<string, unknown> | null
 }
 type DashboardOrderItem = { order_id: string; product_name: string; category?: string; quantity: number; line_total: number; is_manual?: boolean | null }
 type DashboardCoupon = {
@@ -324,6 +325,7 @@ export default function Dashboard() {
       delivery_charge: toNumber(row.delivery_charge, 0),
       total_gst: toNumber(row.total_gst ?? row.gst_amount, 0),
       payment_mode: String(row.payment_mode || row.payment_method || ''),
+      split_details: row.split_details && typeof row.split_details === 'object' ? row.split_details as Record<string, unknown> : null,
       invoice_pdf_url: String(row.invoice_pdf_url || ''),
       remarks: row.remarks ? String(row.remarks) : undefined,
       reference_number: row.reference_number ? String(row.reference_number) : undefined,
@@ -767,7 +769,7 @@ export default function Dashboard() {
       const productsPromise = fetchProducts(true)
       const [oRes, couponRes, expList] = await Promise.all([
         supabase.from('orders')
-          .select('id, invoice_no, customer_name, phone, address, created_at, total, status, order_mode, order_type, user_id, items, coupon_code, discount_amount, manual_discount_amount, delivery_charge, total_gst, gst_amount, payment_mode, payment_method, invoice_pdf_url, remarks, reference_number, is_credit, credit_due_date, credit_status, credit_paid_at')
+          .select('id, invoice_no, customer_name, phone, address, created_at, total, status, order_mode, order_type, user_id, items, coupon_code, discount_amount, manual_discount_amount, delivery_charge, total_gst, gst_amount, payment_mode, payment_method, split_details, invoice_pdf_url, remarks, reference_number, is_credit, credit_due_date, credit_status, credit_paid_at')
           .order('created_at', { ascending: false })
           .limit(1000),
         supabase.from('coupons')
@@ -885,6 +887,7 @@ export default function Dashboard() {
       phone: order.phone,
       invoiceNumber: order.invoice_no || order.id,
       invoiceDate: order.created_at,
+      paymentMode: formatPaymentMode(order.payment_mode || order.payment_method, order.split_details) || undefined,
       items: items.map(item => ({
         name: item.name,
         qty: item.quantity,
@@ -919,6 +922,7 @@ export default function Dashboard() {
     const subtotal = order.total - (order.delivery_charge || 0) + (order.discount_amount || 0)
 
     printThermalReceipt({
+      paymentMode: formatPaymentMode(order.payment_mode || order.payment_method, order.split_details) || undefined,
       invoiceNo: order.invoice_no || order.id,
       date: order.created_at,
       customerName: order.customer_name,
@@ -986,7 +990,7 @@ export default function Dashboard() {
       discountAmount: order.discount_amount,
       manualDiscountAmount: order.manual_discount_amount,
       gstAmount: order.total_gst,
-      paymentMode: order.payment_mode,
+      paymentMode: formatPaymentMode(order.payment_mode || order.payment_method, order.split_details) || undefined,
       total: order.total,
       isCredit: order.credit_status === 'outstanding' || order.credit_status === 'paid',
       creditDueDate: order.credit_status === 'outstanding' ? order.credit_due_date : undefined,
@@ -1136,7 +1140,7 @@ export default function Dashboard() {
       const hasQuery = Boolean(invInput || phoneInput || custInput)
 
       let q = supabase.from('orders')
-        .select('id, invoice_no, customer_name, phone, address, created_at, total, status, order_mode, order_type, items, coupon_code, discount_amount, manual_discount_amount, delivery_charge, total_gst, gst_amount, payment_mode, payment_method, invoice_pdf_url, remarks, reference_number, is_credit, credit_due_date, credit_status, credit_paid_at')
+        .select('id, invoice_no, customer_name, phone, address, created_at, total, status, order_mode, order_type, items, coupon_code, discount_amount, manual_discount_amount, delivery_charge, total_gst, gst_amount, payment_mode, payment_method, split_details, invoice_pdf_url, remarks, reference_number, is_credit, credit_due_date, credit_status, credit_paid_at')
         .neq('order_type', 'online_request')
         .order('created_at', { ascending: false })
         .limit(hasQuery ? 1000 : 500)
@@ -1810,7 +1814,7 @@ export default function Dashboard() {
                       })),
                       subtotal: normalizedItems.reduce((sum, item) => sum + item.line_total, 0),
                       total: getOrderTotal(order),
-                      paymentMode: order.payment_mode || order.payment_method,
+                      paymentMode: formatPaymentMode(order.payment_mode || order.payment_method, order.split_details) || undefined,
                     })
 
                     return (
@@ -1952,7 +1956,7 @@ export default function Dashboard() {
                           })),
                           subtotal: normalizedItems.reduce((sum, item) => sum + item.line_total, 0),
                           total: getOrderTotal(order),
-                          paymentMode: order.payment_mode || order.payment_method,
+                          paymentMode: formatPaymentMode(order.payment_mode || order.payment_method, order.split_details) || undefined,
                         })
 
                         return (
@@ -3727,7 +3731,7 @@ export default function Dashboard() {
                     discountAmount={invoicePreviewOrder.discount_amount}
                     manualDiscountAmount={invoicePreviewOrder.manual_discount_amount}
                     gstAmount={invoicePreviewOrder.total_gst}
-                    paymentMode={invoicePreviewOrder.payment_mode}
+                    paymentMode={formatPaymentMode(invoicePreviewOrder.payment_mode || invoicePreviewOrder.payment_method, invoicePreviewOrder.split_details) || undefined}
                     isCredit={invoicePreviewOrder.credit_status === 'outstanding' || invoicePreviewOrder.credit_status === 'paid'}
                     creditDueDate={invoicePreviewOrder.credit_status === 'outstanding' ? invoicePreviewOrder.credit_due_date : undefined}
                     creditPaidAt={invoicePreviewOrder.credit_status === 'paid' ? invoicePreviewOrder.credit_paid_at : undefined}

@@ -28,6 +28,8 @@ export interface ThermalReceiptData {
   storePhone?: string
   storeAddress?: string
   storeEmail?: string
+  /** e.g. "Cash" or "Split (Cash ₹100 + QR ₹180)" */
+  paymentMode?: string
   isCredit?: boolean
   creditDueDate?: string | null
   creditPaidAt?: string | null
@@ -122,6 +124,7 @@ export function printThermalReceipt(data: ThermalReceiptData) {
         <div class="border-bottom border-top" style="font-size: 11px;">
           <div>Inv: #${formatInvoiceNo(data.invoiceNo)}</div>
           <div>Date: ${dateStr}</div>
+          ${data.paymentMode ? `<div>Payment: ${data.paymentMode}</div>` : ''}
           ${data.customerName ? `<div>Name: ${data.customerName}</div>` : ''}
           ${data.phone ? `<div>Tel: ${formatPhoneDisplay(data.phone)}</div>` : ''}
         </div>

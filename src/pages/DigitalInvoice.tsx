@@ -274,6 +274,7 @@ export default function DigitalInvoice() {
 
   const printReceipt = () => {
     printThermalReceipt({
+      paymentMode: formatPaymentMode(invoice.payment_mode || invoice.payment_method, invoice.split_details) || undefined,
       invoiceNo: invoice.invoice_no,
       date: invoice.created_at,
       customerName: invoice.customer_name,

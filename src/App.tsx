@@ -6,6 +6,7 @@ import { BRAND_EN } from './lib/brand'
 import { clearLocalOrders } from './lib/ordersFallback'
 import { isSupabaseConfigured, supabase } from './lib/supabase'
 import { darkenHex, hexToRgba, ACCENT_ALPHA_STEPS } from './lib/color'
+import { DropdownEnhancer } from './components/DropdownEnhancer'
 
 const Dashboard = lazy(() => import('./pages/Dashboard'))
 const Pos = lazy(() => import('./pages/Pos'))
@@ -218,6 +219,7 @@ export default function App() {
   return (
     <BrowserRouter>
       <AppShell />
+      <DropdownEnhancer />
     </BrowserRouter>
   )
 }
