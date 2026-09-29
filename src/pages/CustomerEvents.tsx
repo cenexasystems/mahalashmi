@@ -89,13 +89,14 @@ export default function CustomerEvents() {
   const applyDatePreset = (preset: DatePreset) => {
     const today = new Date()
     switch (preset) {
-      case 'thisMonth':
+      case 'thisMonth': {
         const month = today.getMonth()
         setFromMonth(month)
         setFromDay(1)
         setToMonth(month)
         setToDay(31)
         break
+      }
       case 'thisYear':
         setFromMonth(0)
         setFromDay(1)

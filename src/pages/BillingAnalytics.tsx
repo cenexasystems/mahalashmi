@@ -276,9 +276,44 @@ export default function BillingAnalytics() {
       ])
 
       const mappedOrders = (ordersRes.data || []).map((row) => toBillingOrder(row as Record<string, unknown>))
-      setOrders(mappedOrders)
 
-      const orderIds = mappedOrders.map((order) => order.id).filter(Boolean)
+      // Merge completed advance orders so advance bill revenue is counted after
+      // refresh (complete_advance_order_v2 does NOT write to the orders table).
+      let allMappedOrders = mappedOrders
+      try {
+        const { data: advData } = await supabase
+          .from('advance_orders')
+          .select('id, deposit_id, customer_name, phone, address, product_name, products, category, total_amount, completed_at, completed_order_id, invoice_number, final_payment_method, status, created_at')
+          .eq('status', 'completed')
+          .not('completed_order_id', 'is', null)
+        if (advData && advData.length > 0) {
+          const existingIds = new Set(mappedOrders.map(o => o.id))
+          const advOrders: BillingOrder[] = (advData as Record<string, unknown>[])
+            .filter(adv => !existingIds.has(String(adv.completed_order_id || '')))
+            .map(adv => ({
+              id: String(adv.completed_order_id || adv.id),
+              invoice_no: String(adv.invoice_number || adv.deposit_id || ''),
+              customer_name: String(adv.customer_name || ''),
+              phone: String(adv.phone || ''),
+              address: String(adv.address || ''),
+              created_at: String(adv.completed_at || adv.created_at || new Date().toISOString()),
+              total: toNumber(adv.total_amount, 0),
+              status: 'completed',
+              order_mode: 'offline',
+              order_type: 'advance_order',
+              items: Array.isArray(adv.products) && (adv.products as unknown[]).length > 0 ? adv.products : [{ name: adv.product_name, quantity: 1, line_total: adv.total_amount }],
+              coupon_code: '',
+              discount_amount: 0,
+              delivery_charge: 0,
+              payment_method: String(adv.final_payment_method || ''),
+            }))
+          allMappedOrders = [...advOrders, ...mappedOrders]
+        }
+      } catch (advErr) { console.error('BillingAnalytics: advance orders fetch error', advErr) }
+
+      setOrders(allMappedOrders)
+
+      const orderIds = allMappedOrders.map((order) => order.id).filter(Boolean)
       if (orderIds.length > 0) {
         const itemsRes = await supabase
           .from('order_items')
@@ -546,7 +581,7 @@ export default function BillingAnalytics() {
   const summaryCards = [
     {
       label: l('Total Revenue', 'மொத்த வருவாய்'),
-      helper: 'POS + manual completed bills',
+      helper: 'POS + manual + advance completed bills',
       value: formatCurrency(analytics.totalCompletedRevenue),
       icon: <RMIcon size={18} />,
       color: 'text-emerald-700',
@@ -667,7 +702,7 @@ export default function BillingAnalytics() {
   }
 
   return (
-    <div className="admin-shell min-h-screen bg-white">
+    <div className="admin-shell h-full overflow-y-auto bg-white">
       <div className="mx-auto max-w-[1600px] px-4 py-4 sm:px-6 lg:px-8">
         <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
           <div className="admin-logo-lockup min-w-[280px]">

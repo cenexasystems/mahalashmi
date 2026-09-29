@@ -793,8 +793,54 @@ export default function Dashboard() {
       ])
       if (oRes.error) throw oRes.error
       const mappedOrders = (oRes.data || []).map(r => toDashboardOrder(r as Record<string, unknown>))
-      setOrders(mappedOrders)
-      setSearchResults(mappedOrders.filter(o => normalizeOrderType(o.order_type) !== 'online_request').slice(0, 100))
+
+      // Merge completed advance orders as synthetic DashboardOrder entries so
+      // their revenue persists across refreshes (complete_advance_order_v2 does
+      // NOT insert into the orders table — revenue is tracked via advance_orders).
+      let allOrders = mappedOrders
+      try {
+        const { data: advData } = await supabase
+          .from('advance_orders')
+          .select('id, deposit_id, customer_name, phone, address, product_name, products, category, total_amount, completed_at, completed_order_id, invoice_number, final_payment_method, status, created_at')
+          .eq('status', 'completed')
+          .not('completed_order_id', 'is', null)
+        if (advData && advData.length > 0) {
+          const existingIds = new Set(mappedOrders.map(o => o.id))
+          const advOrders: DashboardOrder[] = (advData as Record<string, unknown>[])
+            .filter(adv => !existingIds.has(String(adv.completed_order_id || '')))
+            .map(adv => {
+              const products = Array.isArray(adv.products) ? adv.products as Record<string, unknown>[] : []
+              const fallbackItem = { name: String(adv.product_name || 'Product'), category: String(adv.category || ''), quantity: 1, base_price: Number(adv.total_amount || 0), line_total: Number(adv.total_amount || 0), unit: 'piece', unit_type: 'unit', source: 'advance_order' }
+              return {
+                id: String(adv.completed_order_id || adv.id),
+                invoice_no: String(adv.invoice_number || adv.deposit_id || ''),
+                customer_name: String(adv.customer_name || ''),
+                phone: String(adv.phone || ''),
+                address: String(adv.address || ''),
+                created_at: String(adv.completed_at || adv.created_at || new Date().toISOString()),
+                total: Number(adv.total_amount || 0),
+                status: 'completed',
+                order_mode: 'offline',
+                order_type: 'advance_order',
+                user_id: null,
+                items: products.length ? products : [fallbackItem],
+                coupon_code: '',
+                discount_amount: 0,
+                manual_discount_amount: 0,
+                delivery_charge: 0,
+                total_gst: 0,
+                payment_mode: String(adv.final_payment_method || ''),
+                payment_method: String(adv.final_payment_method || ''),
+                split_details: null,
+                invoice_pdf_url: '',
+              } satisfies DashboardOrder
+            })
+          allOrders = [...advOrders, ...mappedOrders]
+        }
+      } catch (advErr) { console.error('Dashboard: advance orders fetch error', advErr) }
+
+      setOrders(allOrders)
+      setSearchResults(allOrders.filter(o => normalizeOrderType(o.order_type) !== 'online_request').slice(0, 100))
       setCoupons((couponRes.data || []) as DashboardCoupon[])
       setExpenses(expList || [])
 
@@ -1150,7 +1196,7 @@ export default function Dashboard() {
     setAnalyticsDateFrom(from); setAnalyticsDateTo(to)
   }
 
-  const applyDatePreset = (preset: 'today' | 'week' | 'month' | 'custom') => {
+  const applyDatePreset = (preset: 'today' | 'week' | 'month' | 'year' | 'custom') => {
     setDatePreset(preset)
     if (preset === 'custom') { setSearch(s => ({ ...s, dateFrom: '', dateTo: '' })); return }
     const { from, to } = getPresetRange(preset)
@@ -1778,10 +1824,10 @@ export default function Dashboard() {
               <div className="flex items-center gap-2">
                 {/* Compact period filter */}
                 <div className="flex gap-1">
-                  {(['all', 'today', 'week', 'month'] as const).map(preset => (
+                  {(['all', 'today', 'week', 'month', 'year'] as const).map(preset => (
                     <button key={preset} type="button" onClick={() => applyAnalyticsPreset(preset)}
                       className={`px-2.5 py-1.5 rounded-lg text-[11px] font-black transition-colors ${analyticsDatePreset === preset ? 'bg-[#111111] text-white' : 'bg-[#F9FAFB] text-[#374151] hover:bg-[#E5E7EB]/40'}`}>
-                      {preset === 'all' ? l('All','எல்லாம்') : preset === 'today' ? l('Today','இன்று') : preset === 'week' ? l('Week','வாரம்') : l('Month','மாதம்')}
+                      {preset === 'all' ? l('All','எல்லாம்') : preset === 'today' ? l('Today','இன்று') : preset === 'week' ? l('Week','வாரம்') : preset === 'month' ? l('Month','மாதம்') : l('Year','வருடம்')}
                     </button>
                   ))}
                 </div>
@@ -3009,10 +3055,10 @@ export default function Dashboard() {
               </div>
               <form onSubmit={runSearch} className="space-y-3 mb-4">
                 <div className="flex flex-wrap gap-2 items-center">
-                  {(['today', 'week', 'month', 'custom'] as const).map(preset => (
+                  {(['today', 'week', 'month', 'year', 'custom'] as const).map(preset => (
                     <button key={preset} type="button" onClick={() => applyDatePreset(preset)}
                       className={`min-h-[44px] px-3 py-1.5 rounded-xl text-[12px] font-black transition-colors ${datePreset === preset ? 'bg-[var(--accent)] text-white shadow-sm' : 'bg-[#F9FAFB] text-[#374151] hover:bg-[#E5E7EB]/40'}`}>
-                      {preset === 'today' ? l('Today','இன்று') : preset === 'week' ? l('This Week','இந்த வாரம்') : preset === 'month' ? l('This Month','இந்த மாதம்') : l('Custom Range','தேர்வு')}
+                      {preset === 'today' ? l('Today','இன்று') : preset === 'week' ? l('This Week','இந்த வாரம்') : preset === 'month' ? l('This Month','இந்த மாதம்') : preset === 'year' ? l('This Year','இந்த வருடம்') : l('Custom Range','தேர்வு')}
                     </button>
                   ))}
                   {(search.dateFrom || search.dateTo || datePreset) && (
