@@ -245,7 +245,7 @@ export default function Dashboard() {
   const [search, setSearch] = useState({ invoiceNo: '', phone: '', customerName: '', dateFrom: '', dateTo: '' })
   const [todayBillsSearch, setTodayBillsSearch] = useState('')
   const [productAnalyticsSearch, setProductAnalyticsSearch] = useState('')
-  const [datePreset, setDatePreset] = useState<'today' | 'week' | 'month' | 'custom' | ''>('')
+  const [datePreset, setDatePreset] = useState<'today' | 'week' | 'month' | 'year' | 'custom' | ''>('')
   const [searchResults, setSearchResults] = useState<DashboardOrder[]>([])
   const [searchLoading, setSearchLoading] = useState(false)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
