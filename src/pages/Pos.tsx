@@ -978,21 +978,24 @@ export default function Pos(props: PosProps = {}) {
     }))
 
     return (
-      <div className="mobile-page-shell h-full overflow-y-auto print:bg-white print:min-h-0 print:h-auto print:overflow-visible">
-        {/* Screen UI */}
-        <div className="max-w-2xl mx-auto px-4 py-6 print:hidden space-y-4">
-          {/* Header */}
-          <div className="flex items-center justify-between">
+      <div className="mobile-page-shell h-full flex flex-col overflow-hidden print:bg-white print:min-h-0 print:h-auto print:overflow-visible">
+        {/* Stationary Header */}
+        <div className="shrink-0 bg-white border-b border-gray-100 px-4 py-4 print:hidden">
+          <div className="max-w-2xl mx-auto flex items-center justify-between">
             <div>
               <h1 className="text-xl font-bold text-textMain">{l('Bill Generated', 'பில் உருவாக்கப்பட்டது')}</h1>
               <p className="text-sm text-textMuted">#{formatInvoiceNo(invoice.invoiceNo)}</p>
             </div>
             <button onClick={clearAll}
-              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-[#111111] hover:bg-[#3d4f3a] text-white font-bold text-sm">
+              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-[#111111] hover:bg-[#3d4f3a] text-white font-bold text-sm cursor-pointer">
               <Plus size={15} /> New Sale
             </button>
           </div>
+        </div>
 
+        {/* Content panel - contained scrolling */}
+        <div className="flex-1 min-h-0 overflow-y-auto overscroll-y-contain px-4 py-6 print:hidden">
+          <div className="max-w-2xl mx-auto space-y-4">
           {/* Payment receipt */}
           <div className="surface-panel p-5 rounded-xl border border-gray-100 bg-white shadow-sm mb-4">
             <p className="text-xs font-black uppercase tracking-widest text-textMuted mb-3">{l('Payment Receipt', 'பண ரசீது')}</p>
@@ -1055,6 +1058,7 @@ export default function Pos(props: PosProps = {}) {
             </div>
           </div>
         </div>
+        </div>
 
         {/* Print view — full A4 invoice */}
         <div className="hidden print:block">
@@ -1083,9 +1087,9 @@ export default function Pos(props: PosProps = {}) {
 
   // ══ MAIN POS SCREEN ══════════════════════════════════════════════════
   return (
-    <div data-embedded={embeddedMode} data-panel={mobilePanelView} className="flex flex-col h-full bg-[#FAFAFA] print:hidden overflow-y-auto overflow-x-hidden hide-scrollbar">
-      {/* Header */}
-      <div className="px-3 pt-3 pb-2.5 sm:px-4 sm:pt-4 md:px-6 md:pt-6 md:pb-4 shrink-0 flex flex-col gap-3 min-[480px]:flex-row min-[480px]:items-start min-[480px]:justify-between">
+    <div data-embedded={embeddedMode} data-panel={mobilePanelView} className="flex flex-col h-full bg-[#FAFAFA] print:hidden overflow-hidden">
+      {/* Header - stationary pinned at top */}
+      <div className="px-3 pt-3 pb-2.5 sm:px-4 sm:pt-4 md:px-6 md:pt-6 md:pb-4 shrink-0 flex flex-col gap-3 min-[480px]:flex-row min-[480px]:items-start min-[480px]:justify-between bg-[#FAFAFA] border-b border-gray-200/50 z-10">
         <div className="min-w-0">
           <h2 className="text-[18px] sm:text-[22px] md:text-[24px] font-black text-[#0A0A0A] flex items-center gap-2 leading-tight">
             <div className="w-1.5 h-5 sm:h-6 bg-[var(--accent)] rounded-full shrink-0"></div>
@@ -1130,11 +1134,11 @@ export default function Pos(props: PosProps = {}) {
         </div>
       </div>
 
-      {/* Main Content Split */}
-      <div className="flex flex-col lg:flex-row gap-4 sm:gap-5 md:gap-6 px-3 sm:px-4 md:px-6 pb-6 lg:h-[calc(100dvh-120px)] lg:overflow-hidden">
+      {/* Main Content Split - contained scroll containers */}
+      <div className="flex-1 min-h-0 flex flex-col lg:flex-row gap-4 sm:gap-5 md:gap-6 px-3 sm:px-4 md:px-6 py-3 sm:py-4 pb-6 overflow-hidden">
 
         {/* LEFT COLUMN (approx 68%) */}
-        <div className="flex-[2.1] flex flex-col gap-4 sm:gap-6 lg:overflow-y-auto lg:pb-4 hide-scrollbar">
+        <div className="flex-[2.1] min-h-0 flex flex-col gap-4 sm:gap-6 overflow-y-auto overscroll-y-contain lg:pb-4 hide-scrollbar">
 
           {/* Customer Details Card */}
           <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-3.5 sm:p-4 md:p-5">
@@ -1276,7 +1280,7 @@ export default function Pos(props: PosProps = {}) {
             </div>
 
             {/* Table Body */}
-            <div className="flex-1 overflow-y-auto p-3 space-y-3 md:space-y-2">
+            <div className="flex-1 overflow-y-auto overscroll-y-contain p-3 space-y-3 md:space-y-2">
               {items.length === 0 && (
                 <div className="flex flex-col items-center justify-center h-full text-[#374151]/60">
                   <ShoppingBag size={40} className="mb-3 opacity-20" />
@@ -1541,7 +1545,7 @@ export default function Pos(props: PosProps = {}) {
             </div>
 
             {/* Content body */}
-            <div className="min-h-0 flex-1 overflow-y-auto bg-white p-3 space-y-2 hide-scrollbar">
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain bg-white p-3 space-y-2 hide-scrollbar">
 
               {/* Info Table */}
               <div className="border border-gray-200 rounded-xl overflow-hidden text-[11px] font-bold">
@@ -1914,10 +1918,10 @@ export default function Pos(props: PosProps = {}) {
               </div>
               <button type="button" onClick={() => { setDepositOpen(false); setError('') }} className="rounded-lg p-1 text-gray-500 hover:bg-gray-100 shrink-0"><X size={20}/></button>
             </div>
-            <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3 sm:px-6 sm:py-4">
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-4 py-3 sm:px-6 sm:py-4">
             <div className="mb-3 sm:mb-4 rounded-2xl bg-violet-50 p-3 sm:p-4">
               <div className="flex justify-between text-sm"><span className="font-bold text-violet-700">Order total</span><span className="font-black text-violet-900">{formatCurrency(total)}</span></div>
-              <div className="mt-2 max-h-16 sm:max-h-24 space-y-1 overflow-y-auto border-t border-violet-200 pt-2">{items.map(item => <div key={item.id} className="flex justify-between gap-3 text-xs"><span className="break-words">{item.qty}× {item.name}</span><span className="font-bold">{formatCurrency(item.lineTotal)}</span></div>)}</div>
+              <div className="mt-2 max-h-16 sm:max-h-24 space-y-1 overflow-y-auto overscroll-y-contain border-t border-violet-200 pt-2">{items.map(item => <div key={item.id} className="flex justify-between gap-3 text-xs"><span className="break-words">{item.qty}× {item.name}</span><span className="font-bold">{formatCurrency(item.lineTotal)}</span></div>)}</div>
             </div>
             <div className="grid grid-cols-2 gap-3 sm:gap-4">
               <label className="block min-w-0"><span className="mb-1 block text-[10px] font-black uppercase tracking-wide text-[#6B7280]">Deposit received *</span><input required autoFocus type="number" onWheel={(e) => (e.target as HTMLInputElement).blur()} min="0.01" max={Math.max(0, total - 0.01)} step="0.01" value={depositForm.amount} onChange={e => setDepositForm({...depositForm, amount:e.target.value})} className="w-full rounded-xl border px-3 py-2.5 text-sm font-bold outline-none focus:border-violet-600"/></label>
@@ -1951,7 +1955,7 @@ export default function Pos(props: PosProps = {}) {
 
       {depositCreated && (
         <ModalPortal><div className="fixed inset-0 z-[95] flex items-center justify-center bg-black/55 p-4">
-          <div className="w-full max-w-md max-h-[90vh] overflow-y-auto rounded-3xl bg-white p-6 text-center shadow-2xl">
+          <div className="w-full max-w-md max-h-[90vh] overflow-y-auto overscroll-y-contain rounded-3xl bg-white p-6 text-center shadow-2xl">
             <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-emerald-100 text-2xl">✓</div>
             <p className="mt-4 text-[11px] font-black uppercase tracking-[.16em] text-violet-600">Deposit order saved</p>
             <h3 className="mt-1 text-2xl font-black text-[#111111]">{depositCreated.deposit_id}</h3>
@@ -2011,7 +2015,7 @@ export default function Pos(props: PosProps = {}) {
                 <label className="block text-[11px] font-black uppercase tracking-wider text-gray-600">
                   Available Sizes &amp; Options ({availableVariants.length})
                 </label>
-                <div className="grid grid-cols-2 gap-2.5 max-h-52 overflow-y-auto pr-1">
+                <div className="grid grid-cols-2 gap-2.5 max-h-52 overflow-y-auto overscroll-y-contain pr-1">
                   {availableVariants.map((v) => (
                     <div
                       key={v.id}

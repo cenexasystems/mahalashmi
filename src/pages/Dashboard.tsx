@@ -1433,7 +1433,7 @@ export default function Dashboard() {
         </div>
         {/* Nav List - Height safe and scrollable */}
         <nav
-          className={`flex overflow-x-auto lg:overflow-x-hidden lg:overflow-y-auto lg:flex-col gap-1 lg:gap-1 px-2 py-2 lg:px-2.5 lg:py-2.5 flex-1 min-h-0 transition-all duration-300 hide-scrollbar ${sidebarCollapsed ? 'lg:px-1.5' : 'lg:px-2.5'}`}
+          className={`flex overflow-x-auto lg:overflow-x-hidden lg:overflow-y-auto lg:flex-col gap-1 lg:gap-1 px-2 py-2 lg:px-2.5 lg:py-2.5 flex-1 min-h-0 transition-all duration-300 hide-scrollbar overscroll-y-contain ${sidebarCollapsed ? 'lg:px-1.5' : 'lg:px-2.5'}`}
         >
           {navItems.map(item => (
             <button
@@ -1493,8 +1493,8 @@ export default function Dashboard() {
       </aside>
 
       {/* Main */}
-      <main className="flex-grow flex flex-col overflow-hidden">
-        <div className="flex-1 p-4 sm:p-6 lg:p-8 overflow-x-hidden overflow-y-auto">
+      <main className="flex-grow flex flex-col overflow-hidden min-h-0">
+        <div className="flex-1 min-h-0 p-4 sm:p-6 lg:p-8 overflow-x-hidden overflow-y-auto overscroll-y-contain">
 
         {/* ΓöÇΓöÇ ANALYTICS TAB ΓöÇΓöÇ */}
 
@@ -3420,7 +3420,7 @@ export default function Dashboard() {
                   </span>
                 </div>
 
-                <div className="space-y-2 max-h-[30rem] overflow-y-auto pr-1">
+                <div className="space-y-2 max-h-[30rem] overflow-y-auto overscroll-y-contain pr-1">
                   {coupons.map((coupon) => {
                     const isExpired = coupon.expiry_date ? new Date(coupon.expiry_date) < new Date() : false
                     const isExhausted = coupon.usage_limit !== null && coupon.usage_count >= coupon.usage_limit
@@ -3744,7 +3744,7 @@ export default function Dashboard() {
                   </button>
                 </div>
               </div>
-              <div className="overflow-y-auto p-2 sm:p-5">
+              <div className="overflow-y-auto overscroll-y-contain p-2 sm:p-5">
                 <div className="mx-auto max-w-[830px] overflow-hidden">
                   <Invoice
                     invoiceNo={formatInvoiceNo(invoicePreviewOrder.invoice_no || invoicePreviewOrder.id)}

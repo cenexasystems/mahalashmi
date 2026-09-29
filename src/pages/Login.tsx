@@ -96,7 +96,7 @@ export default function Login() {
 
   /* ── Render ───────────────────────────────────────────────────── */
   return (
-    <div className="bg-gradient-to-br from-[#eaf2e5] to-[#F9FAFB] h-full overflow-y-auto flex p-4">
+    <div className="bg-gradient-to-br from-[#eaf2e5] to-[#F9FAFB] h-full overflow-y-auto overscroll-y-contain flex p-4">
       <div className="m-auto bg-white p-6 sm:p-8 rounded-3xl shadow-xl border border-sand/40 w-full max-w-md">
 
         {/* Brand */}

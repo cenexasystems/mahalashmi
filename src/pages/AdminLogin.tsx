@@ -40,9 +40,9 @@ export default function AdminLogin() {
   }
 
   return (
-    <div className="relative h-dvh max-h-dvh min-h-dvh overflow-y-auto lg:overflow-hidden bg-white p-3 sm:p-5 lg:p-6 font-sans flex items-center justify-center">
+    <div className="relative h-dvh max-h-dvh min-h-dvh overflow-y-auto overscroll-y-contain lg:overflow-hidden bg-white p-3 sm:p-5 lg:p-6 font-sans flex items-center justify-center">
       <div className="relative grid w-full max-w-4xl max-h-[92vh] overflow-hidden rounded-3xl border border-gray-200/90 bg-[#141414] shadow-[0_25px_60px_-12px_rgba(0,0,0,0.25),0_12px_28px_-6px_rgba(0,0,0,0.15)] lg:grid-cols-[0.85fr_1.15fr]">
-        <div className="hidden flex-col justify-between bg-[#0A0A0A] border-r border-[var(--accent-a20)] p-6 lg:p-8 text-white lg:flex overflow-y-auto hide-scrollbar">
+        <div className="hidden flex-col justify-between bg-[#0A0A0A] border-r border-[var(--accent-a20)] p-6 lg:p-8 text-white lg:flex overflow-y-auto overscroll-y-contain hide-scrollbar">
           <div>
             <div className="mb-5 inline-flex items-center gap-2 rounded-2xl bg-[#141414] border border-[var(--accent-a40)] px-3.5 py-2 shadow-xl">
               <span className="w-6 h-6 rounded-full overflow-hidden shrink-0"><img src={logoUrl} alt={shopName} className="w-full h-full object-cover" /></span>
@@ -54,7 +54,7 @@ export default function AdminLogin() {
           </div>
           <div className="mt-6 flex items-center gap-2 text-xs font-bold text-[var(--accent)]"><ShieldCheck size={15} /> Secure retail workspace</div>
         </div>
-        <div className="p-5 sm:p-7 lg:p-8 bg-white text-[#111111] overflow-y-auto hide-scrollbar flex flex-col justify-center">
+        <div className="p-5 sm:p-7 lg:p-8 bg-white text-[#111111] overflow-y-auto overscroll-y-contain hide-scrollbar flex flex-col justify-center">
           {/* Brand */}
           <div className="mb-4 sm:mb-5 flex flex-col items-center text-center lg:items-start lg:text-left">
             <div className="mb-3 h-16 w-16 shrink-0 overflow-hidden rounded-2xl border border-[var(--accent-a40)] shadow-sm">

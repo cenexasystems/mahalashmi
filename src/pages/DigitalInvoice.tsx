@@ -301,51 +301,56 @@ export default function DigitalInvoice() {
   }
 
   return (
-    <div className="h-full overflow-y-auto bg-[#f9faf6] font-sans pb-12 print:bg-white print:pb-0">
-      {/* Top action bar */}
-      <div className="bg-[#f9faf6] p-3 sm:p-4 sticky top-0 z-50 print:hidden flex flex-wrap items-center justify-between gap-2 max-w-4xl mx-auto">
-        <button onClick={handleBack} className="flex items-center gap-1.5 sm:gap-2 text-[#0A0A0A] hover:text-[var(--accent)] font-semibold text-xs sm:text-sm transition-colors bg-white border border-[#B7E1BE] px-3 sm:px-4 py-1.5 sm:py-2 rounded-full shadow-sm cursor-pointer shrink-0">
-          <ArrowLeft size={16} /> Back
-        </button>
-        <div className="flex items-center gap-2 shrink-0">
-          <button
-            onClick={downloadPdf}
-            className="flex items-center gap-1.5 sm:gap-2 bg-[#0A0A0A] text-[var(--accent)] border border-[var(--accent)] px-3 sm:px-5 py-1.5 sm:py-2 rounded-full font-bold text-xs sm:text-sm shadow-md hover:bg-[#1A1A1A] transition-colors cursor-pointer"
-          >
-            <Printer size={16} /> <span className="hidden sm:inline">PDF Invoice</span>
+    <div className="h-full flex flex-col bg-[#f9faf6] font-sans overflow-hidden print:bg-white print:h-auto print:overflow-visible">
+      {/* Top action bar - stationary pinned header */}
+      <div className="shrink-0 bg-[#f9faf6] border-b border-[#B7E1BE]/30 p-3 sm:p-4 z-50 print:hidden">
+        <div className="flex flex-wrap items-center justify-between gap-2 max-w-4xl mx-auto">
+          <button onClick={handleBack} className="flex items-center gap-1.5 sm:gap-2 text-[#0A0A0A] hover:text-[var(--accent)] font-semibold text-xs sm:text-sm transition-colors bg-white border border-[#B7E1BE] px-3 sm:px-4 py-1.5 sm:py-2 rounded-full shadow-sm cursor-pointer shrink-0">
+            <ArrowLeft size={16} /> Back
           </button>
-          <button
-            onClick={shareViaWhatsApp}
-            className="flex items-center gap-1.5 sm:gap-2 bg-emerald-600 text-white px-3 sm:px-5 py-1.5 sm:py-2 rounded-full font-bold text-xs sm:text-sm shadow-md hover:bg-emerald-700 transition-colors cursor-pointer"
-          >
-            <MessageCircle size={16} /> <span className="hidden sm:inline">WhatsApp</span>
-          </button>
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              onClick={downloadPdf}
+              className="flex items-center gap-1.5 sm:gap-2 bg-[#0A0A0A] text-[var(--accent)] border border-[var(--accent)] px-3 sm:px-5 py-1.5 sm:py-2 rounded-full font-bold text-xs sm:text-sm shadow-md hover:bg-[#1A1A1A] transition-colors cursor-pointer"
+            >
+              <Printer size={16} /> <span className="hidden sm:inline">PDF Invoice</span>
+            </button>
+            <button
+              onClick={shareViaWhatsApp}
+              className="flex items-center gap-1.5 sm:gap-2 bg-emerald-600 text-white px-3 sm:px-5 py-1.5 sm:py-2 rounded-full font-bold text-xs sm:text-sm shadow-md hover:bg-emerald-700 transition-colors cursor-pointer"
+            >
+              <MessageCircle size={16} /> <span className="hidden sm:inline">WhatsApp</span>
+            </button>
+          </div>
         </div>
       </div>
 
-      <div className="max-w-[830px] mx-auto mt-4 print:mt-0 px-2 sm:px-0">
-        <div ref={invoiceElementRef} className="overflow-hidden print:shadow-none print:rounded-none print:border-none">
-          <Invoice
-            invoiceNo={invoice.invoice_no}
-            date={invoice.created_at}
-            customerName={invoice.customer_name}
-            phone={invoice.phone}
-            address={invoice.address}
-            items={invoice.items || []}
-            subtotal={subtotal}
-            shipping={invoice.delivery_charge || 0}
-            discountAmount={invoice.discount_amount || 0}
-            manualDiscountAmount={invoice.manual_discount_amount || 0}
-            gstAmount={invoice.total_gst || invoice.gst_amount || 0}
-            couponCode={invoice.coupon_code}
-            total={invoiceTotal}
-            status={invoice.status}
-            paymentMode={formatPaymentMode(invoice.payment_mode || invoice.payment_method, invoice.split_details)}
-            isCredit={isCredit}
-            creditDueDate={creditDueDate}
-            creditPaidAt={creditPaidAt}
-            onPrintReceipt={printReceipt}
-          />
+      {/* Internal Content - contained scrolling */}
+      <div className="flex-1 min-h-0 overflow-y-auto overscroll-y-contain px-2 sm:px-0 py-4 pb-12 print:p-0 print:overflow-visible">
+        <div className="max-w-[830px] mx-auto print:mt-0">
+          <div ref={invoiceElementRef} className="overflow-hidden print:shadow-none print:rounded-none print:border-none">
+            <Invoice
+              invoiceNo={invoice.invoice_no}
+              date={invoice.created_at}
+              customerName={invoice.customer_name}
+              phone={invoice.phone}
+              address={invoice.address}
+              items={invoice.items || []}
+              subtotal={subtotal}
+              shipping={invoice.delivery_charge || 0}
+              discountAmount={invoice.discount_amount || 0}
+              manualDiscountAmount={invoice.manual_discount_amount || 0}
+              gstAmount={invoice.total_gst || invoice.gst_amount || 0}
+              couponCode={invoice.coupon_code}
+              total={invoiceTotal}
+              status={invoice.status}
+              paymentMode={formatPaymentMode(invoice.payment_mode || invoice.payment_method, invoice.split_details)}
+              isCredit={isCredit}
+              creditDueDate={creditDueDate}
+              creditPaidAt={creditPaidAt}
+              onPrintReceipt={printReceipt}
+            />
+          </div>
         </div>
       </div>
     </div>
