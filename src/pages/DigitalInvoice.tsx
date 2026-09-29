@@ -202,7 +202,10 @@ export default function DigitalInvoice() {
     const link = document.createElement('a')
     link.href = url
     link.download = file.name
+    link.style.display = 'none'
+    document.body.appendChild(link)
     link.click()
+    document.body.removeChild(link)
     setTimeout(() => URL.revokeObjectURL(url), 1000)
   }
 

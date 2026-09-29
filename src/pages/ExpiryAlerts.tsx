@@ -279,8 +279,8 @@ export default function ExpiryAlerts() {
                 const expiryVal = pendingExpiryDates[key] ?? (p.expiryDate || '')
                 const hasPending = Boolean(pendingMfgDates[key] || pendingExpiryDates[key])
                 return (
-                  <div key={p.id} className="flex flex-wrap items-center gap-3 px-4 py-2.5">
-                    <div className="min-w-0 flex-1">
+                  <div key={p.id} className="grid grid-cols-[1fr_auto_auto_auto] items-end gap-x-3 gap-y-1 px-4 py-2.5 sm:flex sm:flex-wrap sm:items-center sm:gap-3">
+                    <div className="col-span-4 min-w-0 sm:flex-1">
                       <p className="text-xs font-bold text-[#273126] break-words">{p.name}</p>
                       <p className="text-[10px] text-[#9CA3AF]">{p.category || 'General'}</p>
                     </div>
@@ -291,7 +291,7 @@ export default function ExpiryAlerts() {
                         value={mfgVal}
                         disabled={Boolean(p.mfgDate)}
                         onChange={e => setPendingMfgDates(prev => ({ ...prev, [key]: e.target.value }))}
-                        className="h-9 rounded-lg border border-[#E5E7EB] bg-white px-2.5 text-xs font-bold text-[#273126] outline-none focus:border-[var(--accent)] disabled:bg-gray-100 disabled:text-gray-400"
+                        className="h-9 w-full rounded-lg border border-[#E5E7EB] bg-white px-2.5 text-xs font-bold text-[#273126] outline-none focus:border-[var(--accent)] disabled:bg-gray-100 disabled:text-gray-400"
                       />
                     </div>
                     <div>
@@ -301,14 +301,14 @@ export default function ExpiryAlerts() {
                         value={expiryVal}
                         disabled={Boolean(p.expiryDate)}
                         onChange={e => setPendingExpiryDates(prev => ({ ...prev, [key]: e.target.value }))}
-                        className="h-9 rounded-lg border border-[#E5E7EB] bg-white px-2.5 text-xs font-bold text-[#273126] outline-none focus:border-[var(--accent)] disabled:bg-gray-100 disabled:text-gray-400"
+                        className="h-9 w-full rounded-lg border border-[#E5E7EB] bg-white px-2.5 text-xs font-bold text-[#273126] outline-none focus:border-[var(--accent)] disabled:bg-gray-100 disabled:text-gray-400"
                       />
                     </div>
                     <button
                       type="button"
                       onClick={() => hasPending && void saveOne(p.id, { mfg: pendingMfgDates[key], expiry: pendingExpiryDates[key] })}
                       disabled={!hasPending || isSaving}
-                      className="flex items-center gap-1 rounded-lg bg-[var(--accent)] px-2.5 py-1.5 text-[11px] font-black text-white disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer self-end"
+                      className="flex items-center gap-1 rounded-lg bg-[var(--accent)] px-2.5 py-1.5 text-[11px] font-black text-white disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer self-end h-9"
                     >
                       {isSaving ? <RefreshCw size={12} className="animate-spin" /> : <Check size={12} />} Save
                     </button>

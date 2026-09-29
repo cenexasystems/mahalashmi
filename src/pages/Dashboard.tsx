@@ -982,14 +982,24 @@ export default function Dashboard() {
       return
     }
 
+    const triggerDownload = (url: string, fileName: string) => {
+      const link = document.createElement('a')
+      link.href = url
+      link.download = fileName
+      link.style.display = 'none'
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+    }
+
     // A credit sale's stored PDF was generated before payment (or before it was
     // ever credit at all) — once settled, regenerate fresh instead of serving
     // the stale "payment due" snapshot from checkout time.
     if (order.invoice_pdf_url && order.credit_status !== 'paid') {
-      const link = document.createElement('a')
-      link.href = order.invoice_pdf_url
-      if (mode === 'download') link.download = `Invoice-${order.invoice_no || order.id}.pdf`
-      if (mode === 'download') { link.click(); return }
+      if (mode === 'download') {
+        triggerDownload(order.invoice_pdf_url, `Invoice-${order.invoice_no || order.id}.pdf`)
+        return
+      }
       const opened = window.open(order.invoice_pdf_url, '_blank', 'noopener,noreferrer')
       if (mode === 'print') opened?.addEventListener('load', () => opened.print())
       return
@@ -1016,7 +1026,7 @@ export default function Dashboard() {
     })
     const url = URL.createObjectURL(file)
     if (mode === 'download') {
-      const link = document.createElement('a'); link.href = url; link.download = file.name; link.click()
+      triggerDownload(url, file.name)
       setTimeout(() => URL.revokeObjectURL(url), 1000)
       return
     }
