@@ -835,11 +835,21 @@ export default function Dashboard() {
       // NOT insert into the orders table — revenue is tracked via advance_orders).
       let allOrders = mappedOrders
       try {
-        const { data: advData } = await supabase
-          .from('advance_orders')
-          .select('id, deposit_id, customer_name, phone, address, product_name, products, category, total_amount, completed_at, completed_order_id, invoice_number, final_payment_method, status, created_at')
-          .eq('status', 'completed')
-          .not('completed_order_id', 'is', null)
+        const ADV_PAGE = 1000
+        const advRows: Record<string, unknown>[] = []
+        for (let from = 0; ; from += ADV_PAGE) {
+          const { data: advPage } = await supabase
+            .from('advance_orders')
+            .select('id, deposit_id, customer_name, phone, address, product_name, products, category, total_amount, completed_at, completed_order_id, invoice_number, final_payment_method, status, created_at')
+            .eq('status', 'completed')
+            .not('completed_order_id', 'is', null)
+            .order('created_at', { ascending: false })
+            .order('id', { ascending: true })
+            .range(from, from + ADV_PAGE - 1)
+          advRows.push(...(advPage || []))
+          if (!advPage || advPage.length < ADV_PAGE) break
+        }
+        const advData = advRows
         if (advData && advData.length > 0) {
           const existingIds = new Set(mappedOrders.map(o => o.id))
           const advOrders: DashboardOrder[] = (advData as Record<string, unknown>[])

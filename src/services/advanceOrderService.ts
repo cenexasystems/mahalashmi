@@ -114,22 +114,32 @@ const rpcRow = (data: unknown) => (Array.isArray(data) ? data[0] : data) as Reco
 export async function listAdvanceOrders(): Promise<AdvanceOrder[]> {
   const local = loadLocalOrders()
   if (isSupabaseConfigured) {
-    try {
-      const { data, error } = await supabase.from('advance_orders').select('*').order('created_at', { ascending: false })
+    // Paginate through all rows — Supabase caps each request at 1000 rows.
+    // Never silently return this device's local cache after a remote failure:
+    // that cache differs per device and was causing inconsistent bill counts.
+    const PAGE = 1000
+    const rows: Record<string, unknown>[] = []
+    for (let from = 0; ; from += PAGE) {
+      const { data, error } = await supabase
+        .from('advance_orders')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .order('id', { ascending: true })
+        .range(from, from + PAGE - 1)
       if (error) {
         console.error('[listAdvanceOrders] Supabase error:', error.message)
-      } else if (Array.isArray(data)) {
-        const remote = data.map(row => normalizeOrder(row as Record<string, unknown>))
-        const remoteIds = new Set(remote.map(r => r.id))
-        const localOnly = local.filter(l => !remoteIds.has(l.id))
-        const merged = [...remote, ...localOnly].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-        saveLocalOrders(merged)
-        return merged
+        throw new Error(`Unable to load advance orders from the server: ${error.message}`)
       }
-    } catch (err) { console.error('[listAdvanceOrders] Exception:', err) }
+      rows.push(...(data || []))
+      if (!data || data.length < PAGE) break
+    }
+    const remote = rows.map(row => normalizeOrder(row))
+    saveLocalOrders(remote)
+    return remote
   }
   return local
 }
+
 
 export async function deleteAdvanceOrder(orderId: string): Promise<void> {
   if (isSupabaseConfigured) {
