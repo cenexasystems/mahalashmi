@@ -977,12 +977,32 @@ export default function Dashboard() {
     } else {
       if (!window.confirm(`Are you sure you want to completely delete order ${formatInvoiceNo(invoiceNo)}? This cannot be undone.`)) return
     }
+    const targetOrder = orders.find(order => order.id === orderId) || searchResults.find(order => order.id === orderId)
+    const isAdvanceBill = targetOrder && normalizeOrderType(targetOrder.order_type) === 'advance_order'
+    if (isAdvanceBill) {
+      const advance = rawAdvanceOrders.find(order => order.id === orderId || order.completed_order_id === orderId)
+      if (!advance) {
+        alert('Could not find the linked advance order. Refresh the list and try again.')
+        return
+      }
+      const { error } = await supabase.from('advance_orders').delete().eq('id', advance.id)
+      if (error) {
+        alert(`Error deleting advance order: ${error.message}`)
+        return
+      }
+      deletedOrderIds.current.add(orderId)
+      setRawAdvanceOrders(prev => prev.filter(order => order.id !== advance.id))
+      setOrders(prev => prev.filter(order => order.id !== orderId))
+      setSearchResults(prev => prev.filter(order => order.id !== orderId))
+      setOrderItems(prev => prev.filter(item => item.order_id !== orderId))
+      return
+    }
     // A deleted completed advance bill must be removed from every analytics source.
     const linkedAdvance = rawAdvanceOrders.find(order => order.completed_order_id === orderId)
     if (linkedAdvance) {
       const { error: advanceError } = await supabase.from('advance_orders')
         .delete()
-        .eq('completed_order_id', orderId)
+        .eq('id', linkedAdvance.id)
       if (advanceError) {
         alert(`Error deleting linked advance order: ${advanceError.message}`)
         return
