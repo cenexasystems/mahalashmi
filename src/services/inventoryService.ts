@@ -290,6 +290,9 @@ export const inventoryService = {
         product:products (id, name, name_ta, image_url),
         variant:product_variants (id, variant_name, sku)
       `, { count: 'exact' })
+      // Product deletion intentionally preserves the audit record but clears
+      // its product FK. Exclude those orphaned entries from live stock reports.
+      .not('product_id', 'is', null)
       .order('created_at', { ascending: false })
 
     if (params?.product_id) {
