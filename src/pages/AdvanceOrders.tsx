@@ -119,12 +119,13 @@ export default function AdvanceOrders({ onOrderCompleted }: AdvanceOrdersProps =
       }
       return true
     })
+    const pendingDepositOrders = datedOrders.filter(o => o.status === 'pending_deposit')
     const activeOrders = datedOrders.filter(o => o.status !== 'cancelled')
     const pendingOrders = datedOrders.filter(o => !['completed', 'cancelled'].includes(o.status))
 
     const totalValue = activeOrders.reduce((sum, o) => sum + Number(o.total_amount || 0), 0)
     // Deposit amount received (e.g. ₹600 from ₹1000 order)
-    const depositsReceived = activeOrders.reduce((sum, o) => sum + Number(o.deposit_amount || 0), 0)
+    const depositsReceived = pendingDepositOrders.reduce((sum, o) => sum + Number(o.deposit_amount || 0), 0)
     const outstanding = pendingOrders.reduce((sum, o) => sum + Number(o.remaining_balance || 0), 0)
 
     return {
@@ -132,7 +133,7 @@ export default function AdvanceOrders({ onOrderCompleted }: AdvanceOrdersProps =
       activeCount: activeOrders.length,
       totalValue,
       depositsReceived,
-      depositCount: activeOrders.length,
+      depositCount: pendingDepositOrders.length,
       outstanding,
       pendingCount: pendingOrders.length,
       pending: datedOrders.filter(o => o.status === 'pending_deposit' || o.status === 'waiting_final_payment').length,
@@ -270,9 +271,9 @@ export default function AdvanceOrders({ onOrderCompleted }: AdvanceOrdersProps =
 
   const cards = [
     {
-      label: 'Deposit Amount Received',
+      label: 'Pending Deposit Amount Received',
       value: formatCurrency(analytics.depositsReceived),
-      subtext: `${analytics.depositCount} Deposit Bills Collected`,
+      subtext: `${analytics.depositCount} Pending Deposit Bills`,
       Icon: RupeeIcon,
       color: 'text-emerald-700 bg-emerald-50 border-emerald-200'
     },
