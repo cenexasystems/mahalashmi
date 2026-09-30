@@ -21,6 +21,8 @@ export type { ProductVariant }
 export interface Product {
   id: string | number // Support both legacy numeric IDs and new UUIDs
   name: string
+  nameTa?: string
+  name_ta?: string
   category: string
   categoryId?: number | string | null
   remedy: string[]
@@ -225,9 +227,13 @@ const mapDbProduct = (input: unknown, categoriesById: Record<string, string> = {
     ? p.remedy.filter((entry): entry is string => typeof entry === 'string')
     : []
 
+  const tamilName = readString(p.name_ta) || readString(p.tamil_name) || undefined
+
   return {
     id: String(p.id || ''),
     name: readString(p.name, 'Product'),
+    nameTa: tamilName,
+    name_ta: tamilName,
     category: categoriesById[String(categoryId)] || (() => {
       const legacyCategory = readString(p.category).trim()
       return LEGACY_CATEGORY_NAMES.has(legacyCategory.toLowerCase()) ? '' : legacyCategory

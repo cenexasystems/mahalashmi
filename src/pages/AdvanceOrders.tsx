@@ -96,14 +96,30 @@ export default function AdvanceOrders({ onOrderCompleted }: AdvanceOrdersProps =
     try { const history = await getAdvanceOrderHistory(order.id); setTimeline(history.timeline); setPayments(history.payments) } catch (err) { setError(getErrorMessage(err, 'Unable to load order details')) }
   }
 
-  const analytics = useMemo(() => ({
-    total: orders.length,
-    pending: orders.filter(o => o.status === 'pending_deposit' || o.status === 'waiting_final_payment').length,
-    deposits: orders.filter(o => o.status !== 'cancelled').reduce((sum, o) => sum + o.deposit_amount, 0),
-    outstanding: orders.filter(o => !['completed', 'cancelled'].includes(o.status)).reduce((sum, o) => sum + o.remaining_balance, 0),
-    ready: orders.filter(o => o.status === 'ready_for_delivery').length,
-    completed: orders.filter(o => o.status === 'completed').length,
-  }), [orders])
+  const analytics = useMemo(() => {
+    const activeOrders = orders.filter(o => o.status !== 'cancelled')
+    const completedOrders = orders.filter(o => o.status === 'completed')
+    const pendingOrders = orders.filter(o => !['completed', 'cancelled'].includes(o.status))
+
+    const totalValue = activeOrders.reduce((sum, o) => sum + Number(o.total_amount || 0), 0)
+    const totalReceived = activeOrders.reduce((sum, o) => sum + (o.status === 'completed' ? Number(o.total_amount || 0) : Number(o.deposit_amount || 0)), 0)
+    const outstanding = pendingOrders.reduce((sum, o) => sum + Number(o.remaining_balance || 0), 0)
+    const completedAmount = completedOrders.reduce((sum, o) => sum + Number(o.total_amount || 0), 0)
+
+    return {
+      total: orders.length,
+      activeCount: activeOrders.length,
+      totalValue,
+      totalReceived,
+      receivedCount: activeOrders.length,
+      outstanding,
+      pendingCount: pendingOrders.length,
+      pending: orders.filter(o => o.status === 'pending_deposit' || o.status === 'waiting_final_payment').length,
+      ready: orders.filter(o => o.status === 'ready_for_delivery').length,
+      completed: completedOrders.length,
+      completedAmount,
+    }
+  }, [orders])
 
   const filtered = useMemo(() => orders.filter(order => {
     const query = search.trim().toLowerCase()
@@ -233,16 +249,68 @@ export default function AdvanceOrders({ onOrderCompleted }: AdvanceOrdersProps =
   }
 
   const cards = [
-    ['Total Deposits', analytics.total, FileText, 'text-emerald-700 bg-emerald-50'], ['Pending Deposit Orders', analytics.pending, Clock3, 'text-amber-700 bg-amber-50'],
-    ['Total Deposit Amount', formatCurrency(analytics.deposits), RupeeIcon, 'text-fuchsia-700 bg-fuchsia-50'], ['Outstanding Balance', formatCurrency(analytics.outstanding), RupeeIcon, 'text-red-700 bg-red-50'],
-    ['Ready For Collection', analytics.ready, PackageCheck, 'text-blue-700 bg-blue-50'], ['Completed Deposit Orders', analytics.completed, CheckCircle2, 'text-emerald-700 bg-emerald-50'],
-  ] as const
+    {
+      label: 'Total Amount Received',
+      value: formatCurrency(analytics.totalReceived),
+      subtext: `${analytics.receivedCount} Bills with Deposit / Full Pay`,
+      Icon: RupeeIcon,
+      color: 'text-emerald-700 bg-emerald-50 border-emerald-200'
+    },
+    {
+      label: 'Needed to Receive (Pending)',
+      value: formatCurrency(analytics.outstanding),
+      subtext: `${analytics.pendingCount} Bills with Balance Due`,
+      Icon: RupeeIcon,
+      color: 'text-amber-700 bg-amber-50 border-amber-200'
+    },
+    {
+      label: 'Total Advance Orders Value',
+      value: formatCurrency(analytics.totalValue),
+      subtext: `${analytics.total} Total Orders`,
+      Icon: FileText,
+      color: 'text-fuchsia-700 bg-fuchsia-50 border-fuchsia-200'
+    },
+    {
+      label: 'Completed Advance Orders',
+      value: formatCurrency(analytics.completedAmount),
+      subtext: `${analytics.completed} Completed Bills`,
+      Icon: CheckCircle2,
+      color: 'text-teal-700 bg-teal-50 border-teal-200'
+    },
+    {
+      label: 'Ready For Delivery',
+      value: `${analytics.ready}`,
+      subtext: 'Ready for customer pickup/delivery',
+      Icon: PackageCheck,
+      color: 'text-blue-700 bg-blue-50 border-blue-200'
+    },
+    {
+      label: 'Pending Deposit Orders',
+      value: `${analytics.pending}`,
+      subtext: 'Awaiting balance or confirmation',
+      Icon: Clock3,
+      color: 'text-rose-700 bg-rose-50 border-rose-200'
+    },
+  ]
 
   return <div className="space-y-5">
     <div className="flex flex-wrap items-center justify-between gap-3"><div><p className="text-xs font-black uppercase tracking-[.18em] text-emerald-600">Separate from sales</p><h2 className="text-2xl font-black text-[#273126]">Advance Orders</h2><p className="mt-1 text-sm text-[#6B7280]">Deposits never count as revenue. Full order value is recognized only after final payment.</p></div><div className="flex gap-2"><button onClick={() => void load()} className="rounded-xl border bg-white p-3 text-[#647064]" title="Refresh"><RefreshCw size={18}/></button></div></div>
     {error && <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">{error}</div>}
     {notice && <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700">{notice}</div>}
-    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">{cards.map(([label, value, Icon, color]) => <div key={label} className="rounded-2xl border border-[#ECE9E2] bg-white p-4 shadow-sm"><div className="flex items-center justify-between"><div><p className="text-[11px] font-black uppercase tracking-wide text-[#879086]">{label}</p><p className="mt-2 text-[17px] sm:text-2xl font-black text-[#273126] break-words">{value}</p></div><div className={`rounded-xl p-3 ${color}`}><Icon size={21}/></div></div></div>)}</div>
+    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+      {cards.map((c) => (
+        <div key={c.label} className="rounded-2xl border border-[#ECE9E2] bg-white p-4 shadow-sm flex flex-col justify-between">
+          <div className="flex items-start justify-between gap-2">
+            <div>
+              <p className="text-[11px] font-black uppercase tracking-wide text-[#879086]">{c.label}</p>
+              <p className="mt-1.5 text-[18px] sm:text-2xl font-black text-[#273126] break-words">{c.value}</p>
+            </div>
+            <div className={`rounded-xl p-2.5 border shrink-0 ${c.color}`}><c.Icon size={20}/></div>
+          </div>
+          <p className="mt-2 text-[11px] font-bold text-gray-500 border-t border-gray-100 pt-2">{c.subtext}</p>
+        </div>
+      ))}
+    </div>
     <div className="rounded-2xl border border-[#ECE9E2] bg-white p-4 shadow-sm"><div className="grid gap-3 lg:grid-cols-[1fr_auto_auto]"><label className="relative"><Search className="absolute left-3 top-3 text-[#9CA3AF]" size={17}/><input className={`${inputClass} pl-10`} value={search} onChange={e => setSearch(e.target.value)} placeholder="Search Deposit ID, customer, phone, product or status"/></label><div className="flex flex-wrap gap-2">{(['all','pending','ready','completed','cancelled'] as StatusFilter[]).map(value => <button key={value} onClick={() => setStatusFilter(value)} className={`rounded-lg px-3 py-2 text-xs font-black capitalize ${statusFilter === value ? 'bg-[var(--accent-dark)] text-white' : 'bg-[#F5F3F7] text-[#626B61]'}`}>{value}</button>)}</div><select className={inputClass} value={dateFilter} onChange={e => setDateFilter(e.target.value as DateFilter)}><option value="all">All Dates</option><option value="today">Today</option><option value="week">This Week</option><option value="month">This Month</option></select></div></div>
     <div className="rounded-2xl border border-[#ECE9E2] bg-white shadow-sm flex flex-col">
       <div className="overflow-x-auto overscroll-x-contain">

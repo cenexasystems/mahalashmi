@@ -148,53 +148,62 @@ export const OutstandingCreditsView: React.FC<OutstandingCreditsViewProps> = ({
   const overdueItems = items.filter((o) => o.daysOverdue > 0)
   const totalOverdue = overdueItems.reduce((sum, o) => sum + Number(o.total || 0), 0)
 
+  const paidHistory = filteredHistory.filter(
+    (o) => (o as unknown as { credit_status?: string }).credit_status === 'paid' || Boolean((o as unknown as { is_credit?: boolean; credit_paid_at?: string }).credit_paid_at)
+  )
+  const totalReceived = paidHistory.reduce((sum, o) => sum + Number(o.total || 0), 0)
+  const totalCreditAmount = totalOutstanding + totalReceived
+  const totalBillsCount = items.length + paidHistory.length
+
+  const creditCards = [
+    {
+      label: 'Total Amount Received',
+      value: formatCurrency(totalReceived),
+      subtext: `${paidHistory.length} Paid / Settled Bills`,
+      Icon: CheckCircle2,
+      color: 'text-green-700 bg-green-50 border-green-200'
+    },
+    {
+      label: 'Needed to Receive (Outstanding)',
+      value: formatCurrency(totalOutstanding),
+      subtext: `${items.length} Pending Credit Bills`,
+      Icon: IndianRupee,
+      color: 'text-amber-700 bg-amber-50 border-amber-200'
+    },
+    {
+      label: 'Total Credit Billed',
+      value: formatCurrency(totalCreditAmount),
+      subtext: `${totalBillsCount} Total Credit Invoices`,
+      Icon: Wallet,
+      color: 'text-gray-900 bg-gray-50 border-gray-200'
+    },
+    {
+      label: 'Overdue Amount',
+      value: formatCurrency(totalOverdue),
+      subtext: `${overdueItems.length} Overdue Bills`,
+      Icon: AlertTriangle,
+      color: 'text-red-700 bg-red-50 border-red-200'
+    },
+  ]
+
   return (
     <div className="space-y-6 animate-in fade-in duration-150">
       {/* KPI Cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4">
-        <div className="bg-white border border-[#B7E1BE] rounded-2xl p-3 sm:p-4 shadow-sm flex items-center gap-2.5 sm:gap-3">
-          <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-xl bg-[#0A0A0A] text-[var(--accent)] flex items-center justify-center font-black shrink-0">
-            <Wallet size={20} />
-          </div>
-          <div className="min-w-0">
-            <div className="text-[10px] font-bold text-gray-500">Outstanding Invoices</div>
-            <div className="text-[15px] sm:text-xl font-black text-black break-words">{items.length}</div>
-          </div>
-        </div>
-
-        <div className="bg-white border border-[#B7E1BE] rounded-2xl p-3 sm:p-4 shadow-sm flex items-center gap-2.5 sm:gap-3">
-          <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center justify-center font-black shrink-0">
-            <IndianRupee size={20} />
-          </div>
-          <div className="min-w-0">
-            <div className="text-[10px] font-bold text-gray-500">Total Outstanding</div>
-            <div className="text-[14px] sm:text-lg font-black text-emerald-700 break-words">{formatCurrency(totalOutstanding)}</div>
-          </div>
-        </div>
-
-        <div className="bg-white border border-[#B7E1BE] rounded-2xl p-3 sm:p-4 shadow-sm flex items-center gap-2.5 sm:gap-3 col-span-2 sm:col-span-1">
-          <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-xl bg-red-50 text-red-700 border border-red-200 flex items-center justify-center font-black shrink-0">
-            <AlertTriangle size={20} />
-          </div>
-          <div className="min-w-0">
-            <div className="text-[10px] font-bold text-gray-500">Overdue ({overdueItems.length})</div>
-            <div className="text-[14px] sm:text-lg font-black text-red-700 break-words">{formatCurrency(totalOverdue)}</div>
-          </div>
-        </div>
-
-        {/* Paid Credits Summary Card */}
-        <div className="bg-white border border-[#B7E1BE] rounded-2xl p-3 sm:p-4 shadow-sm flex items-center gap-2.5 sm:gap-3">
-          <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-xl bg-green-50 text-green-700 border border-green-200 flex items-center justify-center font-black shrink-0">
-            <CheckCircle2 size={20} />
-          </div>
-          <div className="min-w-0">
-            <div className="text-[10px] font-bold text-gray-500">Paid Credits</div>
-            <div className="text-[14px] sm:text-lg font-black text-green-700 break-words">
-              {/* Count from history tab - paid orders */}
-              {filteredHistory.filter((o) => (o as any).credit_status === 'paid').length}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+        {creditCards.map((c) => (
+          <div key={c.label} className="bg-white border border-[#B7E1BE] rounded-2xl p-4 shadow-sm flex flex-col justify-between">
+            <div className="flex items-start justify-between gap-2">
+              <div>
+                <div className="text-[11px] font-black uppercase tracking-wide text-gray-500">{c.label}</div>
+                <div className="mt-1.5 text-[18px] sm:text-2xl font-black text-black break-words">{c.value}</div>
+              </div>
+              <div className={`w-10 h-10 rounded-xl border flex items-center justify-center font-black shrink-0 ${c.color}`}>
+                <c.Icon size={20} />
+              </div>
             </div>
+            <div className="mt-2 text-[11px] font-bold text-gray-500 border-t border-gray-100 pt-2">{c.subtext}</div>
           </div>
-        </div>
+        ))}
       </div>
 
       {/* Tab switcher + Search + Filters */}

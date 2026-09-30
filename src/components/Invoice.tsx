@@ -8,6 +8,8 @@ export interface InvoiceItem {
   id?: number | string
   product_id?: number | null
   name: string
+  name_ta?: string | null
+  nameTa?: string | null
   qty: number
   quantity?: number
   unit?: string
@@ -190,12 +192,18 @@ export const Invoice: React.FC<InvoiceProps> = ({
               const normalized = normalizeStructuredOrderItem(item as unknown as Record<string, unknown>)
               const giftNote = String(normalized.special_offer_note || item.special_offer_note || '').trim()
               const giftValue = Number(normalized.special_offer_cost ?? item.special_offer_cost) || 0
+              const tamilName = normalized.name_ta || normalized.nameTa || item.name_ta || item.nameTa
               return (
                 <React.Fragment key={idx}>
                 <tr style={{ borderBottom: giftNote ? 'none' : '1px solid #f0f0f0' }}>
                   <td style={{ padding: '10px 8px', fontSize: 11, color: '#999', verticalAlign: 'top' }}>{idx + 1}</td>
                   <td style={{ padding: '10px 8px', verticalAlign: 'top' }}>
                     <div style={{ fontSize: 12, fontWeight: 700, color: '#0A0A0A' }}>{normalized.name}</div>
+                    {tamilName && (
+                      <div style={{ fontSize: 11, fontWeight: 500, color: '#374151', fontFamily: "'Noto Sans Tamil', 'Latha', 'Tamil Sangam MN', sans-serif", marginTop: 1 }}>
+                        {tamilName}
+                      </div>
+                    )}
                     {item.offerPrice && item.price !== item.offerPrice && (
                       <div style={{ fontSize: 10, color: '#aaa', textDecoration: 'line-through', marginTop: 2 }}>MRP ₹{item.price}</div>
                     )}

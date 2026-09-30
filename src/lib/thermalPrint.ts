@@ -10,6 +10,7 @@ export interface ThermalReceiptData {
   phone?: string
   items: Array<{
     name: string
+    name_ta?: string | null
     qty: number
     unit?: string
     price: number
@@ -152,7 +153,8 @@ export function printThermalReceipt(data: ThermalReceiptData) {
               return `
                 <tr>
                   <td class="text-left item-name">
-                    ${item.name} <br/>
+                    ${item.name}
+                    ${item.name_ta ? `<div style="font-size: 10px; font-weight: normal; font-family: 'Noto Sans Tamil', 'Latha', 'Tamil Sangam MN', sans-serif;">${item.name_ta}</div>` : ''}
                     <span style="font-size: 9px; color: #000;">@ ${formatCurrency(item.price)}${unit ? ` / ${unit}` : ' each'}</span>
                   </td>
                   <td class="text-right">${item.qty}</td>

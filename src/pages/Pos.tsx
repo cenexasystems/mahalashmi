@@ -1008,7 +1008,16 @@ export default function Pos(props: PosProps = {}) {
         customerName: inv.customerName,
         phone: inv.phone,
         address: inv.address,
-        items: inv.items.map(item => ({ name: item.name, qty: item.qty, unit: item.selectedUnit, price: Number(item.basePrice) || 0, line_total: item.lineTotal, special_offer_note: item.specialOfferNote, special_offer_cost: item.specialOfferCost })),
+        items: inv.items.map(item => ({
+          name: item.name,
+          name_ta: (item as unknown as { name_ta?: string; nameTa?: string }).name_ta || (item as unknown as { name_ta?: string; nameTa?: string }).nameTa || null,
+          qty: item.qty,
+          unit: item.selectedUnit,
+          price: Number(item.basePrice) || 0,
+          line_total: item.lineTotal,
+          special_offer_note: item.specialOfferNote,
+          special_offer_cost: item.specialOfferCost
+        })),
         subtotal: inv.subtotal,
         shipping: inv.shipping,
         discountAmount: inv.couponDiscount,
@@ -1037,7 +1046,16 @@ export default function Pos(props: PosProps = {}) {
       date: inv.date,
       customerName: inv.customerName,
       phone: inv.phone,
-      items: inv.items.map(item => ({ name: item.name, qty: item.qty, unit: item.selectedUnit, price: Number(item.basePrice) || 0, line_total: item.lineTotal, special_offer_note: item.specialOfferNote, special_offer_cost: item.specialOfferCost })),
+      items: inv.items.map(item => ({
+        name: item.name,
+        name_ta: (item as unknown as { name_ta?: string; nameTa?: string }).name_ta || (item as unknown as { name_ta?: string; nameTa?: string }).nameTa || null,
+        qty: item.qty,
+        unit: item.selectedUnit,
+        price: Number(item.basePrice) || 0,
+        line_total: item.lineTotal,
+        special_offer_note: item.specialOfferNote,
+        special_offer_cost: item.specialOfferCost
+      })),
       subtotal: inv.subtotal,
       shipping: inv.shipping,
       couponDiscount: inv.couponDiscount,
@@ -1054,6 +1072,8 @@ export default function Pos(props: PosProps = {}) {
     const invoiceItems = invoice.items.map(item => ({
       id: item.id,
       name: item.name,
+      name_ta: (item as unknown as { name_ta?: string; nameTa?: string }).name_ta || (item as unknown as { name_ta?: string; nameTa?: string }).nameTa || null,
+      nameTa: (item as unknown as { name_ta?: string; nameTa?: string }).nameTa || (item as unknown as { name_ta?: string; nameTa?: string }).name_ta || null,
       qty: item.qty,
       quantity: item.qty,
       unit: item.selectedUnit,
@@ -1208,14 +1228,14 @@ export default function Pos(props: PosProps = {}) {
             <>
               <button
                 onClick={() => navigate('/dashboard')}
-                className="flex items-center justify-center min-h-[38px] sm:min-h-[42px] px-3 sm:px-4 rounded-xl bg-[#111111] text-white hover:bg-[#3d4f3a] transition-colors text-[11px] font-black tracking-wider uppercase"
+                className="flex items-center justify-center min-h-[38px] sm:min-h-[42px] px-3 sm:px-4 rounded-xl bg-[#111111] text-white hover:bg-[#3d4f3a] transition-colors text-[11px] font-black tracking-wider uppercase cursor-pointer"
               >
                 Dashboard
               </button>
               <button
                 onClick={() => { logout(); navigate('/admin-login', { replace: true }) }}
                 title="Logout"
-                className="flex items-center justify-center min-h-[38px] sm:min-h-[42px] px-3 rounded-xl border border-red-200 bg-red-50 text-red-600 hover:bg-red-100 transition-colors"
+                className="flex items-center justify-center min-h-[38px] sm:min-h-[42px] px-3 rounded-xl border border-red-200 bg-red-50 text-red-600 hover:bg-red-100 transition-colors cursor-pointer"
               >
                 <Power size={16} />
               </button>
@@ -1224,14 +1244,55 @@ export default function Pos(props: PosProps = {}) {
         </div>
       </div>
 
-      {/* Main Content Split - contained scroll containers */}
-      <div className="flex-1 min-h-0 flex flex-col lg:flex-row gap-4 sm:gap-5 md:gap-6 px-3 sm:px-4 md:px-6 py-3 sm:py-4 pb-6 overflow-hidden">
+      {/* Mobile Tab Switcher — visible on mobile and tablet (hidden on desktop lg) */}
+      <div className="lg:hidden shrink-0 px-3 pt-2 pb-2 bg-[#FAFAFA] border-b border-gray-200/70 z-10">
+        <div className="grid grid-cols-2 p-1 bg-white rounded-xl border border-gray-200 shadow-xs">
+          <button
+            type="button"
+            onClick={() => setMobilePanelView('catalogue')}
+            className={`min-h-[40px] px-3 py-1.5 rounded-lg text-[12px] font-black tracking-wide flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+              mobilePanelView === 'catalogue'
+                ? 'bg-[#0A0A0A] text-[var(--accent)] shadow-sm'
+                : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+            }`}
+          >
+            <Receipt size={15} />
+            <span>Items & Customer</span>
+            <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-black ${
+              mobilePanelView === 'catalogue' ? 'bg-[var(--accent)] text-[#0A0A0A]' : 'bg-gray-200 text-gray-700'
+            }`}>
+              {items.length}
+            </span>
+          </button>
 
-        {/* LEFT COLUMN (approx 68%) */}
-        <div className="flex-[2.1] min-h-0 flex flex-col gap-4 sm:gap-6 overflow-y-auto overscroll-y-contain lg:pb-4">
+          <button
+            type="button"
+            onClick={() => setMobilePanelView('bill')}
+            className={`min-h-[40px] px-3 py-1.5 rounded-lg text-[12px] font-black tracking-wide flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+              mobilePanelView === 'bill'
+                ? 'bg-[#0A0A0A] text-[var(--accent)] shadow-sm'
+                : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+            }`}
+          >
+            <ShoppingBag size={15} />
+            <span>Bill & Payment</span>
+            <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-black ${
+              mobilePanelView === 'bill' ? 'bg-[var(--accent)] text-[#0A0A0A]' : 'bg-emerald-100 text-emerald-800'
+            }`}>
+              {formatCurrency(total)}
+            </span>
+          </button>
+        </div>
+      </div>
+
+      {/* Main Content Split - fully responsive */}
+      <div className="flex-1 min-h-0 flex flex-col lg:flex-row gap-4 sm:gap-5 md:gap-6 px-3 sm:px-4 md:px-6 py-3 sm:py-4 pb-4 sm:pb-6 overflow-hidden">
+
+        {/* LEFT COLUMN (Customer Details + Order Items) */}
+        <div className={`flex-[2.1] min-h-0 flex-col gap-4 sm:gap-6 overflow-y-auto lg:pb-4 ${mobilePanelView === 'catalogue' ? 'flex' : 'hidden lg:flex'}`}>
 
           {/* Customer Details Card */}
-          <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-3.5 sm:p-4 md:p-5">
+          <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-3.5 sm:p-4 md:p-5 shrink-0">
             <h3 className="text-[14px] sm:text-[15px] font-black text-[#111111] flex items-center gap-2 mb-3 sm:mb-4">
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-[var(--accent)]"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
               Customer Details
@@ -1312,9 +1373,9 @@ export default function Pos(props: PosProps = {}) {
           </div>
 
           {/* Order Items Card */}
-          <div className="bg-white rounded-2xl border border-[#B7E1BE] shadow-sm flex-1 flex flex-col min-h-[400px]">
+          <div className="bg-white rounded-2xl border border-[#B7E1BE] shadow-sm flex flex-col min-h-[360px]">
             {/* Card Header & Barcode Scanner */}
-            <div className="flex flex-col gap-3 p-4 md:p-5 border-b border-[#B7E1BE]">
+            <div className="flex flex-col gap-3 p-4 md:p-5 border-b border-[#B7E1BE] shrink-0">
               <div className="flex items-center justify-between">
                 <h3 className="text-[18px] md:text-[14px] font-black text-[#0A0A0A] flex items-center gap-2">
                   <Receipt size={16} className="text-[var(--accent)]" />
@@ -1366,7 +1427,7 @@ export default function Pos(props: PosProps = {}) {
                     <AlertCircle size={15} className="text-red-500 shrink-0" />
                     <span className="truncate">{error}</span>
                   </div>
-                  <button type="button" onClick={() => setError('')} className="p-1 rounded hover:bg-red-100 text-red-500 shrink-0">
+                  <button type="button" onClick={() => setError('')} className="p-1 rounded hover:bg-red-100 text-red-500 shrink-0 cursor-pointer">
                     <X size={13} />
                   </button>
                 </div>
@@ -1374,7 +1435,7 @@ export default function Pos(props: PosProps = {}) {
             </div>
 
             {/* Table Header */}
-            <div className="hidden md:grid grid-cols-[1fr_100px_120px_40px] gap-3 px-5 py-3 border-b border-gray-200 bg-[#FAFAFA]">
+            <div className="hidden md:grid grid-cols-[1fr_100px_120px_40px] gap-3 px-5 py-3 border-b border-gray-200 bg-[#FAFAFA] shrink-0">
               <span className="text-[10px] font-bold text-[#374151] tracking-wide">Item Name / Description</span>
               <span className="text-[10px] font-bold text-[#374151] tracking-wide text-right">Price (₹)</span>
               <span className="text-[10px] font-bold text-[#374151] tracking-wide text-center">Qty</span>
@@ -1382,9 +1443,9 @@ export default function Pos(props: PosProps = {}) {
             </div>
 
             {/* Table Body */}
-            <div className="flex-1 overflow-y-auto overscroll-y-contain p-3 space-y-3 md:space-y-2">
+            <div className="p-3 space-y-3 md:space-y-2 flex-1">
               {items.length === 0 && (
-                <div className="flex flex-col items-center justify-center h-full text-[#374151]/60">
+                <div className="flex flex-col items-center justify-center py-12 text-[#374151]/60">
                   <ShoppingBag size={40} className="mb-3 opacity-20" />
                   <p className="text-[13px] font-bold">No items added yet</p>
                 </div>
@@ -1440,7 +1501,7 @@ export default function Pos(props: PosProps = {}) {
                                 <button
                                   type="button"
                                   onClick={() => setEditingOfferId(item.id)}
-                                  className="flex-1 min-w-0 text-left px-3 py-2 rounded-lg bg-amber-50 border border-amber-200 text-[12px] font-bold text-amber-900 break-words"
+                                  className="flex-1 min-w-0 text-left px-3 py-2 rounded-lg bg-amber-50 border border-amber-200 text-[12px] font-bold text-amber-900 break-words cursor-pointer"
                                 >
                                   🎁 {item.specialOfferNote || 'Tap to apply free gifts and offers'}
                                 </button>
@@ -1448,7 +1509,7 @@ export default function Pos(props: PosProps = {}) {
                                   <button
                                     type="button"
                                     onClick={() => setEditingOfferId(item.id)}
-                                    className="shrink-0 px-2.5 py-2 rounded-lg bg-amber-100 border border-amber-200 text-[11px] font-black text-amber-900 whitespace-nowrap"
+                                    className="shrink-0 px-2.5 py-2 rounded-lg bg-amber-100 border border-amber-200 text-[11px] font-black text-amber-900 whitespace-nowrap cursor-pointer"
                                   >
                                     Cost ₹{item.specialOfferCost}
                                   </button>
@@ -1460,7 +1521,7 @@ export default function Pos(props: PosProps = {}) {
                       </div>
                       <button
                         onClick={() => removeItem(item.id)}
-                        className="w-11 h-11 shrink-0 flex items-center justify-center rounded-xl border border-gray-200 text-[#374151] hover:bg-red-50 hover:text-red-500 hover:border-red-200 transition-colors"
+                        className="w-11 h-11 shrink-0 flex items-center justify-center rounded-xl border border-gray-200 text-[#374151] hover:bg-red-50 hover:text-red-500 hover:border-red-200 transition-colors cursor-pointer"
                         aria-label={`Delete ${item.name}`}
                       >
                         <Trash2 size={16} />
@@ -1489,7 +1550,7 @@ export default function Pos(props: PosProps = {}) {
                       <div className="grid grid-cols-[48px_1fr_48px] items-center gap-2 border border-gray-200 rounded-xl px-2 py-2 bg-white">
                         <button
                           onClick={() => bumpQty(item.id, item.allowDecimalQuantity ? -0.1 : -1)}
-                          className="w-11 h-11 rounded-xl hover:bg-[#FAFAFA] flex items-center justify-center text-[#374151] font-bold text-[20px]"
+                          className="w-11 h-11 rounded-xl hover:bg-[#FAFAFA] flex items-center justify-center text-[#374151] font-bold text-[20px] cursor-pointer"
                         >-</button>
                         {item.allowDecimalQuantity ? (
                           <input
@@ -1506,7 +1567,7 @@ export default function Pos(props: PosProps = {}) {
                         )}
                         <button
                           onClick={() => bumpQty(item.id, item.allowDecimalQuantity ? 0.1 : 1)}
-                          className="w-11 h-11 rounded-xl hover:bg-[#FAFAFA] flex items-center justify-center text-[#374151] font-bold text-[20px]"
+                          className="w-11 h-11 rounded-xl hover:bg-[#FAFAFA] flex items-center justify-center text-[#374151] font-bold text-[20px] cursor-pointer"
                         >+</button>
                       </div>
                     </div>
@@ -1565,7 +1626,7 @@ export default function Pos(props: PosProps = {}) {
                             <button
                               type="button"
                               onClick={() => setEditingOfferId(item.id)}
-                              className="min-w-0 text-left px-2.5 py-1 rounded-md bg-amber-50 border border-amber-200 text-[11px] font-bold text-amber-900 break-words"
+                              className="min-w-0 text-left px-2.5 py-1 rounded-md bg-amber-50 border border-amber-200 text-[11px] font-bold text-amber-900 break-words cursor-pointer"
                             >
                               🎁 {item.specialOfferNote || 'Tap to apply free gifts and offers'}
                             </button>
@@ -1573,7 +1634,7 @@ export default function Pos(props: PosProps = {}) {
                               <button
                                 type="button"
                                 onClick={() => setEditingOfferId(item.id)}
-                                className="shrink-0 px-2 py-1 rounded-md bg-amber-100 border border-amber-200 text-[10px] font-black text-amber-900 whitespace-nowrap"
+                                className="shrink-0 px-2 py-1 rounded-md bg-amber-100 border border-amber-200 text-[10px] font-black text-amber-900 whitespace-nowrap cursor-pointer"
                               >
                                 Cost ₹{item.specialOfferCost}
                               </button>
@@ -1594,7 +1655,7 @@ export default function Pos(props: PosProps = {}) {
                     <div className="flex items-center justify-between border border-gray-200 rounded-lg px-2 py-1 bg-white">
                       <button
                         onClick={() => bumpQty(item.id, item.allowDecimalQuantity ? -0.1 : -1)}
-                        className="w-6 h-6 rounded-md hover:bg-[#FAFAFA] flex items-center justify-center text-[#374151] font-bold"
+                        className="w-6 h-6 rounded-md hover:bg-[#FAFAFA] flex items-center justify-center text-[#374151] font-bold cursor-pointer"
                       >-</button>
                       {item.allowDecimalQuantity ? (
                         <input
@@ -1612,14 +1673,14 @@ export default function Pos(props: PosProps = {}) {
                       )}
                       <button
                         onClick={() => bumpQty(item.id, item.allowDecimalQuantity ? 0.1 : 1)}
-                        className="w-6 h-6 rounded-md hover:bg-[#FAFAFA] flex items-center justify-center text-[#374151] font-bold"
+                        className="w-6 h-6 rounded-md hover:bg-[#FAFAFA] flex items-center justify-center text-[#374151] font-bold cursor-pointer"
                       >+</button>
                     </div>
 
                     {/* Delete */}
                     <button
                       onClick={() => removeItem(item.id)}
-                      className="w-9 h-9 flex items-center justify-center rounded-lg border border-gray-200 text-[#374151] hover:bg-red-50 hover:text-red-500 hover:border-red-200 transition-colors"
+                      className="w-9 h-9 flex items-center justify-center rounded-lg border border-gray-200 text-[#374151] hover:bg-red-50 hover:text-red-500 hover:border-red-200 transition-colors cursor-pointer"
                     >
                       <Trash2 size={14} />
                     </button>
@@ -1628,26 +1689,56 @@ export default function Pos(props: PosProps = {}) {
               ))}
             </div>
           </div>
+
+          {/* Mobile "View Bill & Checkout" Sticky Bar */}
+          <div className="lg:hidden sticky bottom-0 z-20 pt-2 pb-1 bg-gradient-to-t from-[#FAFAFA] via-[#FAFAFA] to-transparent">
+            <button
+              type="button"
+              onClick={() => setMobilePanelView('bill')}
+              className="w-full min-h-[48px] rounded-xl bg-[#0A0A0A] border-2 border-[var(--accent)] text-[var(--accent)] font-black text-[13px] uppercase tracking-wider flex items-center justify-between px-4 shadow-xl active:scale-[0.99] transition-all cursor-pointer"
+            >
+              <span className="flex items-center gap-2">
+                <ShoppingBag size={17} />
+                <span>View Bill ({items.length} {items.length === 1 ? 'item' : 'items'})</span>
+              </span>
+              <span className="flex items-center gap-1.5 text-[15px] font-black">
+                <span>{formatCurrency(total)}</span>
+                <span>→</span>
+              </span>
+            </button>
+          </div>
         </div>
 
-        {/* RIGHT COLUMN (approx 32%) */}
-        <div className="flex-[1] flex min-h-0 max-lg:min-h-[420px] flex-col gap-6 lg:sticky lg:top-4 h-[calc(100dvh-140px)] max-h-[calc(100dvh-140px)]">
+        {/* RIGHT COLUMN (Current Order & Payment Summary) */}
+        <div className={`flex-[1] min-w-0 lg:min-w-[340px] lg:max-w-[440px] flex-col min-h-0 h-full ${mobilePanelView === 'bill' ? 'flex' : 'hidden lg:flex'}`}>
           <div className="flex min-h-0 h-full max-h-full flex-col overflow-hidden rounded-2xl border border-gray-200 bg-[#FBFAF6] shadow-sm">
 
             {/* Header */}
             <div className="flex items-center justify-between p-3 border-b border-gray-200 bg-white shrink-0">
-              <h3 className="text-[18px] md:text-[14px] font-black text-[#111111] flex items-center gap-2">
-                <Receipt size={16} className="text-[var(--accent)]" />
-                Current Order
-              </h3>
+              <div className="flex items-center gap-2">
+                {/* Mobile Back to Items Button */}
+                <button
+                  type="button"
+                  onClick={() => setMobilePanelView('catalogue')}
+                  className="lg:hidden flex items-center justify-center h-8 px-2 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-bold gap-1 cursor-pointer"
+                  title="Back to items"
+                >
+                  <span>←</span>
+                  <span>Items</span>
+                </button>
+                <h3 className="text-[16px] md:text-[14px] font-black text-[#111111] flex items-center gap-2">
+                  <Receipt size={16} className="text-[var(--accent)]" />
+                  Current Order
+                </h3>
+              </div>
               <span className={`px-2 py-1 rounded-full border text-[9px] font-black tracking-wider uppercase flex items-center gap-1.5 ${ordermode === 'offline' ? 'border-[#0A0A0A] text-[#0A0A0A] bg-gray-100' : 'border-[var(--accent)] text-[var(--accent-dark)] bg-amber-50'}`}>
                 <div className={`w-1.5 h-1.5 rounded-full ${ordermode === 'offline' ? 'bg-[#0A0A0A]' : 'bg-[var(--accent)]'}`}></div>
                 {ordermode} (POS)
               </span>
             </div>
 
-            {/* Content body */}
-            <div className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain bg-white p-3 space-y-2">
+            {/* Scrollable Content Body */}
+            <div className="min-h-0 flex-1 overflow-y-auto bg-white p-3 space-y-2.5">
 
               {/* Info Table */}
               <div className="border border-gray-200 rounded-xl overflow-hidden text-[11px] font-bold">

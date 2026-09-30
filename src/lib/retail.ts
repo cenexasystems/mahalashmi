@@ -11,6 +11,8 @@ export type StructuredOrderItem = {
   variant_id:   string | null   // product_variants.id (UUID) — null for non-variant items
   variant_name: string | null   // snapshot of variant name at order time
   name: string
+  name_ta?: string | null       // snapshot of Tamil name for thermal & invoice billing
+  nameTa?: string | null
   quantity: number
   unit: string
   unit_type: UnitType
@@ -430,6 +432,8 @@ export const buildStructuredOrderItem = (input: {
   variantId?:  string | null   // product_variants.id UUID
   variantName?: string | null  // snapshot for order history
   name: string
+  name_ta?: string | null
+  nameTa?: string | null
   quantity: number
   unit: string
   unitType: UnitType
@@ -454,12 +458,15 @@ export const buildStructuredOrderItem = (input: {
   const safeBaseQuantity = normalizeBaseQuantity(input.baseQuantity, input.unitType)
   const safeBasePrice = clampTo(toNumber(input.basePrice, 0), 0)
   const isManual = Boolean(input.isManual || input.is_manual || input.source === 'manual' || input.category === 'Unregistered')
+  const tamilName = (input.name_ta || input.nameTa) ? String(input.name_ta || input.nameTa).trim() : null
 
   return {
     product_id:   input.productId,
     variant_id:   input.variantId   ? String(input.variantId)   : null,
     variant_name: input.variantName ? String(input.variantName) : null,
     name: String(input.name || 'Product'),
+    name_ta: tamilName,
+    nameTa: tamilName,
     quantity: safeQuantity,
     unit: normalizeUnitLabel(input.unit, input.unitType),
     unit_type: input.unitType,
@@ -504,11 +511,15 @@ export const normalizeStructuredOrderItem = (raw: Record<string, unknown>): Stru
       ? String(productIdValue).trim()
       : null
 
+  const tamilName = (raw.name_ta || raw.nameTa || raw.tamil_name) ? String(raw.name_ta || raw.nameTa || raw.tamil_name).trim() : null
+
   return {
     product_id:   productId,
     variant_id:   raw.variant_id   ? String(raw.variant_id)   : null,
     variant_name: raw.variant_name ? String(raw.variant_name) : null,
     name: String(raw.name || 'Product'),
+    name_ta: tamilName,
+    nameTa: tamilName,
     quantity,
     unit,
     unit_type: unitType,

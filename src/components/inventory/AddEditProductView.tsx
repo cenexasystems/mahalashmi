@@ -34,6 +34,7 @@ const DATE_INPUT_CLASS = '!h-10 !py-0 !pl-3.5 !pr-10 !text-xs !bg-[#FAFAFA]'
 export interface VariantInputRow {
   id: string
   qty: string
+  unit?: string
   price: number
   costPrice: number
   stock: number
@@ -66,12 +67,14 @@ async function loadVariantDates(productId: string): Promise<Map<string, { mfgDat
   return out
 }
 
-// Extracts the leading number from a stored size label (e.g. "20gm" -> "20") so
-// existing variant rows still show a sensible quantity when the product is reopened.
-const parseQtyFromLabel = (label?: string | null): string => {
-  if (!label) return ''
-  const match = label.match(/^(\d+(?:\.\d+)?)/)
-  return match ? match[1] : ''
+// Extracts the quantity and unit from a stored size label (e.g. "200gm" -> qty: "200", unit: "gm")
+const parseQtyAndUnitFromLabel = (label?: string | null, fallbackUnit?: string): { qty: string; unit: string } => {
+  if (!label) return { qty: '', unit: fallbackUnit || 'gm' }
+  const match = label.match(/^(\d+(?:\.\d+)?)\s*(.*)$/)
+  if (match) {
+    return { qty: match[1], unit: match[2]?.trim() || fallbackUnit || 'gm' }
+  }
+  return { qty: label.trim(), unit: fallbackUnit || 'gm' }
 }
 
 // The actual barcode_registry writes below use `.upsert(..., { onConflict: 'barcode_value' })`,
@@ -104,6 +107,7 @@ export const AddEditProductView: React.FC<{ onStockUpdated?: () => void }> = ({ 
 
   // Form State
   const [name, setName] = useState('')
+  const [nameTa, setNameTa] = useState('')
   const [categoryId, setCategoryId] = useState<number | ''>('')
   const [price, setPrice] = useState<string>('')
   const [purchasePrice, setPurchasePrice] = useState<string>('')
@@ -166,6 +170,7 @@ export const AddEditProductView: React.FC<{ onStockUpdated?: () => void }> = ({ 
   const resetForm = () => {
     setSelectedProductId(null)
     setName('')
+    setNameTa('')
     setCategoryId('')
     setPrice('')
     setPurchasePrice('')
@@ -193,6 +198,7 @@ export const AddEditProductView: React.FC<{ onStockUpdated?: () => void }> = ({ 
     setMobileView('form')
     setSelectedProductId(Number(p.id))
     setName(p.name || '')
+    setNameTa(p.nameTa || (p as unknown as { name_ta?: string }).name_ta || '')
     setCategoryId(p.categoryId ? Number(p.categoryId) : '')
     setPrice(String(p.price || ''))
     setPurchasePrice(String(p.purchasePrice || ''))
@@ -221,17 +227,22 @@ export const AddEditProductView: React.FC<{ onStockUpdated?: () => void }> = ({ 
     if (p.hasVariants) {
       try {
         const [vars, dates] = await Promise.all([fetchVariantsByProduct(String(p.id)), loadVariantDates(String(p.id))])
+        const defaultUnit = matchedUnit?.suffix || 'gm'
         setVariantRows(
-          vars.map((v) => ({
-            id: v.id,
-            qty: parseQtyFromLabel(v.sizeLabel || v.variantName),
-            price: v.price,
-            costPrice: v.purchasePrice || 0,
-            stock: v.stock || 0,
-            customBarcode: v.barcode || '',
-            mfgDate: dates.get(String(v.id))?.mfgDate || '',
-            expiryDate: dates.get(String(v.id))?.expiryDate || '',
-          }))
+          vars.map((v) => {
+            const parsed = parseQtyAndUnitFromLabel(v.sizeLabel || v.variantName, defaultUnit)
+            return {
+              id: v.id,
+              qty: parsed.qty,
+              unit: parsed.unit,
+              price: v.price,
+              costPrice: v.purchasePrice || 0,
+              stock: v.stock || 0,
+              customBarcode: v.barcode || '',
+              mfgDate: dates.get(String(v.id))?.mfgDate || '',
+              expiryDate: dates.get(String(v.id))?.expiryDate || '',
+            }
+          })
         )
       } catch (err) {
         console.error('Failed to load variants for edit:', err)
@@ -244,11 +255,13 @@ export const AddEditProductView: React.FC<{ onStockUpdated?: () => void }> = ({ 
   const handleAddVariantRow = () => {
     const baseP = parseFloat(price) || 0
     const baseC = parseFloat(purchasePrice) || 0
+    const currentUnit = getSelectedUnitInfo()
     setVariantRows((prev) => [
       ...prev,
       {
         id: `var_${Date.now()}_${Math.random()}`,
         qty: '',
+        unit: currentUnit.suffix || 'gm',
         price: baseP,
         costPrice: baseC,
         stock: 0,
@@ -312,7 +325,7 @@ export const AddEditProductView: React.FC<{ onStockUpdated?: () => void }> = ({ 
     }
 
     const selectedUnit = getSelectedUnitInfo()
-    const labelForQty = (qty: string) => `${qty.trim()}${selectedUnit.suffix}`
+    const labelForQty = (v: VariantInputRow) => `${v.qty.trim()}${v.unit || selectedUnit.suffix}`
 
     const firstVariant = variantRows.find((v) => v.qty.trim())
     // With pack sizes, the product carries the earliest batch dates so Expiry Alerts flags it in time
@@ -385,6 +398,7 @@ export const AddEditProductView: React.FC<{ onStockUpdated?: () => void }> = ({ 
             .from('products')
             .update({
               name: trimmedName,
+              name_ta: nameTa.trim() || null,
               category: categoryName,
               category_id: categoryId ? Number(categoryId) : null,
               price: priceNum,
@@ -459,7 +473,7 @@ export const AddEditProductView: React.FC<{ onStockUpdated?: () => void }> = ({ 
           let totalVariantStock = 0
           for (const v of variantRows) {
             if (!v.qty.trim()) continue
-            const vLabel = labelForQty(v.qty)
+            const vLabel = labelForQty(v)
             const vPrice = Number(v.price) > 0 ? Number(v.price) : priceNum
             const vCost = Number(v.costPrice) > 0 ? Number(v.costPrice) : costNum
             const vStock = Math.max(0, Number(v.stock) || 0)
@@ -581,6 +595,7 @@ export const AddEditProductView: React.FC<{ onStockUpdated?: () => void }> = ({ 
             .from('products')
             .update({
               name: trimmedName,
+              name_ta: nameTa.trim() || null,
               category: categoryName,
               category_id: categoryId ? Number(categoryId) : null,
               price: priceNum,
@@ -622,6 +637,7 @@ export const AddEditProductView: React.FC<{ onStockUpdated?: () => void }> = ({ 
             .from('products')
             .insert({
               name: trimmedName,
+              name_ta: nameTa.trim() || null,
               category: categoryName,
               category_id: categoryId ? Number(categoryId) : null,
               price: priceNum,
@@ -698,6 +714,7 @@ export const AddEditProductView: React.FC<{ onStockUpdated?: () => void }> = ({ 
             .from('products')
             .insert({
               name: trimmedName,
+              name_ta: nameTa.trim() || null,
               category: categoryName,
               category_id: categoryId ? Number(categoryId) : null,
               price: priceNum,
@@ -728,7 +745,7 @@ export const AddEditProductView: React.FC<{ onStockUpdated?: () => void }> = ({ 
 
           for (const v of variantRows) {
             if (!v.qty.trim()) continue
-            const vLabel = labelForQty(v.qty)
+            const vLabel = labelForQty(v)
             const vPrice = Number(v.price) > 0 ? Number(v.price) : priceNum
             const vCost = Number(v.costPrice) > 0 ? Number(v.costPrice) : costNum
             const vStock = Math.max(0, Number(v.stock) || 0)
@@ -994,7 +1011,7 @@ export const AddEditProductView: React.FC<{ onStockUpdated?: () => void }> = ({ 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <label className="block text-[11px] font-bold text-gray-700 mb-1.5 h-4 flex items-center">
-                  1. What's the product? <span className="text-red-500 ml-0.5">*</span>
+                  1. Product Name (English) <span className="text-red-500 ml-0.5">*</span>
                 </label>
                 <input
                   type="text"
@@ -1007,6 +1024,24 @@ export const AddEditProductView: React.FC<{ onStockUpdated?: () => void }> = ({ 
                 />
               </div>
 
+              <div>
+                <label className="block text-[11px] font-bold text-gray-700 mb-1.5 h-4 flex items-center justify-between">
+                  <span className="flex items-center gap-1.5">
+                    Product Name (Tamil)
+                    <span className="text-[10px] font-black bg-amber-100 text-amber-900 px-1.5 py-0.5 rounded border border-amber-300">
+                      தமிழ்
+                    </span>
+                  </span>
+                  <span className="text-[10px] text-gray-400 font-normal">Optional</span>
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. டாடா உப்பு, பார்லே-ஜி"
+                  value={nameTa}
+                  onChange={(e) => setNameTa(e.target.value)}
+                  className="w-full h-10 px-3.5 rounded-xl border border-gray-300 bg-white text-xs font-bold text-gray-900 outline-none focus:border-[#0A0A0A]"
+                />
+              </div>
             </div>
 
             <>
@@ -1038,8 +1073,8 @@ export const AddEditProductView: React.FC<{ onStockUpdated?: () => void }> = ({ 
                     )}
                   </div>
 
-                  {/* For packaging units (packet, box, bag, etc.), ask what's inside */}
-                  {['packet', 'box', 'bag', 'bundle', 'bottle', 'tin', 'pouch'].includes(unitChoice) && (
+                  {/* For packaging units on single-size products, ask what's inside */}
+                  {!hasVariants && ['packet', 'box', 'bag', 'bundle', 'bottle', 'tin', 'pouch'].includes(unitChoice) && (
                     <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
                       <p className="text-[10px] font-bold text-blue-700 mb-2.5">What's inside each {UNIT_OPTIONS.find(o => o.value === unitChoice)?.suffix}?</p>
                       <div className="flex gap-2">
@@ -1104,7 +1139,7 @@ export const AddEditProductView: React.FC<{ onStockUpdated?: () => void }> = ({ 
                     >
                       <span className="block text-xs font-black text-gray-900">Multiple Pack Sizes</span>
                       <span className="block text-[11px] text-gray-500 font-medium mt-0.5">
-                        Different prices per quantity, e.g. 20{selectedUnitInfo.suffix} ₹12, 50{selectedUnitInfo.suffix} ₹45, 100{selectedUnitInfo.suffix} ₹85
+                        Different prices per quantity, e.g. 200gm ₹45, 500gm ₹100, 1kg ₹190
                       </span>
                     </button>
                   </div>
@@ -1209,18 +1244,39 @@ export const AddEditProductView: React.FC<{ onStockUpdated?: () => void }> = ({ 
                         >
                           <div className="sm:col-span-3">
                             <label className="block text-[10px] font-bold text-gray-600 mb-0.5">
-                              Quantity ({selectedUnitInfo.suffix})
+                              Pack Size & Unit
                             </label>
-                            <input
-                              type="number"
-                              min="0"
-                              step="0.01"
-                              required
-                              placeholder="e.g. 20"
-                              value={v.qty}
-                              onChange={(e) => handleUpdateVariantRow(v.id, 'qty', e.target.value)}
-                              className="w-full h-8 px-2.5 rounded-lg border border-gray-300 bg-white text-xs font-bold text-gray-900 outline-none focus:border-[#0A0A0A]"
-                            />
+                            <div className="flex gap-1.5">
+                              <input
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                required
+                                placeholder="e.g. 200"
+                                value={v.qty}
+                                onChange={(e) => handleUpdateVariantRow(v.id, 'qty', e.target.value)}
+                                className="w-full min-w-0 flex-1 h-8 px-2 rounded-lg border border-gray-300 bg-white text-xs font-bold text-gray-900 outline-none focus:border-[#0A0A0A]"
+                              />
+                              <select
+                                value={v.unit || selectedUnitInfo.suffix}
+                                onChange={(e) => handleUpdateVariantRow(v.id, 'unit', e.target.value)}
+                                className="w-20 shrink-0 h-8 px-1 rounded-lg border border-gray-300 bg-white text-xs font-bold text-gray-800 outline-none focus:border-[#0A0A0A]"
+                              >
+                                <option value="gm">gm</option>
+                                <option value="kg">kg</option>
+                                <option value="ml">ml</option>
+                                <option value="L">L</option>
+                                <option value="pcs">pcs</option>
+                                <option value="packet">packet</option>
+                                <option value="box">box</option>
+                                <option value="pouch">pouch</option>
+                                <option value="tin">tin</option>
+                                <option value="bundle">bundle</option>
+                                {selectedUnitInfo.suffix && !['gm', 'kg', 'ml', 'L', 'pcs', 'packet', 'box', 'pouch', 'tin', 'bundle'].includes(selectedUnitInfo.suffix) && (
+                                  <option value={selectedUnitInfo.suffix}>{selectedUnitInfo.suffix}</option>
+                                )}
+                              </select>
+                            </div>
                           </div>
 
                           <div className="sm:col-span-2">

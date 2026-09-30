@@ -283,11 +283,12 @@ export default function DigitalInvoice() {
       customerName: invoice.customer_name,
       phone: invoice.phone,
       items: (invoice.items || []).map((item: Record<string, unknown>) => ({
-        name: item.name || item.product_name,
-        qty: item.qty || item.quantity,
-        unit: item.unit,
-        price: item.price || item.base_price || 0,
-        line_total: item.line_total
+        name: String(item.name || item.product_name || ''),
+        name_ta: (item.name_ta || item.nameTa || item.tamil_name || null) as string | null,
+        qty: Number(item.qty || item.quantity || 1),
+        unit: item.unit ? String(item.unit) : undefined,
+        price: Number(item.price || item.base_price || 0),
+        line_total: Number(item.line_total || 0)
       })),
       subtotal,
       shipping: invoice.delivery_charge || 0,
