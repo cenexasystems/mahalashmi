@@ -1540,7 +1540,7 @@ export default function Dashboard() {
 
       {/* Main */}
       <main className="flex-grow flex flex-col overflow-hidden min-h-0">
-        <div className="flex-1 min-h-0 p-4 sm:p-6 lg:p-8 overflow-x-hidden overflow-y-auto overscroll-y-contain">
+        <div className={`flex-1 min-h-0 ${tab === 'billing' ? 'p-0 overflow-hidden' : 'p-4 sm:p-6 lg:p-8 overflow-x-hidden overflow-y-auto overscroll-y-contain'}`}>
 
         {/* ΓöÇΓöÇ ANALYTICS TAB ΓöÇΓöÇ */}
 
@@ -2997,7 +2997,7 @@ export default function Dashboard() {
 
         {/* ── BILLING PANEL ── */}
         {tab === 'billing' && (
-          <div className="-m-4 sm:-m-6 lg:-m-8">
+          <div className="h-full w-full flex flex-col min-h-0 overflow-hidden">
             <Pos
               isEmbedded
               externalScannedCode={cartItemToInject}

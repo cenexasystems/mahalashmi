@@ -309,28 +309,52 @@
   }
 }
 
+/* Universal sleek modern scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.03);
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.22);
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.45);
+}
+
+/* Firefox scrollbar */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0, 0, 0, 0.25) transparent;
+}
+
 @layer utilities {
   .hide-scrollbar::-webkit-scrollbar { display: none; }
   .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 
   /* Visible scrollbar styling */
   .scrollbar-visible::-webkit-scrollbar {
-    width: 6px;
-    height: 6px;
+    width: 7px;
+    height: 7px;
   }
   .scrollbar-visible::-webkit-scrollbar-track {
-    background: #f1f1f1;
+    background: rgba(0, 0, 0, 0.05);
+    border-radius: 9999px;
   }
   .scrollbar-visible::-webkit-scrollbar-thumb {
-    background: #888;
-    border-radius: 3px;
+    background: rgba(46, 125, 50, 0.5);
+    border-radius: 9999px;
   }
   .scrollbar-visible::-webkit-scrollbar-thumb:hover {
-    background: #555;
+    background: rgba(46, 125, 50, 0.8);
   }
   .scrollbar-visible {
     scrollbar-width: thin;
-    scrollbar-color: #888 #f1f1f1;
+    scrollbar-color: rgba(46, 125, 50, 0.5) rgba(0, 0, 0, 0.05);
   }
 
   /* Smooth scrolling utilities */

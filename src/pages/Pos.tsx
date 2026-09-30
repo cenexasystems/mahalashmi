@@ -1228,7 +1228,7 @@ export default function Pos(props: PosProps = {}) {
       <div className="flex-1 min-h-0 flex flex-col lg:flex-row gap-4 sm:gap-5 md:gap-6 px-3 sm:px-4 md:px-6 py-3 sm:py-4 pb-6 overflow-hidden">
 
         {/* LEFT COLUMN (approx 68%) */}
-        <div className="flex-[2.1] min-h-0 flex flex-col gap-4 sm:gap-6 overflow-y-auto overscroll-y-contain lg:pb-4 hide-scrollbar">
+        <div className="flex-[2.1] min-h-0 flex flex-col gap-4 sm:gap-6 overflow-y-auto overscroll-y-contain lg:pb-4">
 
           {/* Customer Details Card */}
           <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-3.5 sm:p-4 md:p-5">
@@ -1647,7 +1647,7 @@ export default function Pos(props: PosProps = {}) {
             </div>
 
             {/* Content body */}
-            <div className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain bg-white p-3 space-y-2 hide-scrollbar">
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain bg-white p-3 space-y-2">
 
               {/* Info Table */}
               <div className="border border-gray-200 rounded-xl overflow-hidden text-[11px] font-bold">
