@@ -187,6 +187,15 @@ export const customerService = {
     }
   },
 
+  /** Remove one occasion date while preserving the customer and other occasion. */
+  async clearOccasionDate(id: string, type: 'birthday' | 'anniversary'): Promise<void> {
+    const { error } = await supabase
+      .from('customers')
+      .update({ [type]: null, updated_at: new Date().toISOString() })
+      .eq('id', id)
+    if (error) throw error
+  },
+
   /**
    * Delete a customer record from the management screen.
    */

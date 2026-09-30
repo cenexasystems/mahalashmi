@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { ChevronLeft, ChevronRight, MessageCircle } from 'lucide-react'
+import { ChevronLeft, ChevronRight, MessageCircle, Trash2 } from 'lucide-react'
 import { customerService } from '../../services/customerService'
 import type { CustomerRecord } from '../../services/customerService'
 import { useEventOfferSettings } from '../../lib/eventOfferSettings'
@@ -13,6 +13,7 @@ type PageType = 'calendar' | 'customers'
 export default function BirthdayView() {
   const [customers, setCustomers] = React.useState<CustomerRecord[]>([])
   const [loading, setLoading] = React.useState(true)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
   const [currentPage, setCurrentPage] = useState<PageType>('calendar')
   const [currentMonth, setCurrentMonth] = useState(new Date().getMonth())
   const [currentYear, setCurrentYear] = useState(new Date().getFullYear())
@@ -94,6 +95,20 @@ export default function BirthdayView() {
       await customerService.acknowledgeEvent(customer.id, 'birthday')
     } catch (err) {
       console.error('Failed to send offer')
+    }
+  }
+
+  const deleteBirthday = async (customer: CustomerRecord) => {
+    if (!window.confirm(`Remove the birthday date for ${customer.name}? Their customer record and any anniversary will be kept.`)) return
+    setDeletingId(customer.id)
+    try {
+      await customerService.clearOccasionDate(customer.id, 'birthday')
+      setCustomers(rows => rows.map(row => row.id === customer.id ? { ...row, birthday: null } : row))
+    } catch (err) {
+      console.error('Failed to remove customer birthday:', err)
+      window.alert('Could not remove this birthday. Please try again.')
+    } finally {
+      setDeletingId(null)
     }
   }
 
@@ -265,7 +280,7 @@ export default function BirthdayView() {
                     <th className="px-4 py-3 font-black">MOBILE</th>
                     <th className="px-4 py-3 font-black">DATE OF BIRTH</th>
                     <th className="px-4 py-3 font-black">SPENT</th>
-                    <th className="px-4 py-3 font-black">OFFER</th>
+                    <th className="px-4 py-3 font-black">ACTIONS</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#E5E7EB]">
@@ -281,9 +296,21 @@ export default function BirthdayView() {
                         <td className="px-4 py-3 text-[#6B7280]">{new Date(`${customer.birthday}T00:00:00`).toLocaleDateString('en-IN')}</td>
                         <td className="px-4 py-3 font-black text-[#111111]">₹0</td>
                         <td className="px-4 py-3">
-                          <button onClick={() => sendOffer(customer)} className="flex items-center gap-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 px-3 py-1.5 text-[10px] font-black text-white cursor-pointer">
-                            <MessageCircle size={12} /> SEND OFFER
-                          </button>
+                          <div className="flex items-center gap-2">
+                            <button onClick={() => sendOffer(customer)} className="flex items-center gap-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 px-3 py-1.5 text-[10px] font-black text-white cursor-pointer">
+                              <MessageCircle size={12} /> SEND OFFER
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => void deleteBirthday(customer)}
+                              disabled={deletingId === customer.id}
+                              className="flex h-8 w-8 items-center justify-center rounded-lg border border-red-200 text-red-600 hover:bg-red-50 disabled:opacity-50"
+                              title={`Remove birthday for ${customer.name}`}
+                              aria-label={`Remove birthday for ${customer.name}`}
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     ))
