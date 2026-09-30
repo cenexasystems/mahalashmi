@@ -1244,8 +1244,8 @@ export default function Pos(props: PosProps = {}) {
         </div>
       </div>
 
-      {/* Mobile Tab Switcher — visible on mobile and tablet (hidden on desktop lg) */}
-      <div className="lg:hidden shrink-0 px-3 pt-2 pb-2 bg-[#FAFAFA] border-b border-gray-200/70 z-10">
+      {/* POS panel switcher is retained for tablets; phones use the stacked layout. */}
+      <div className="hidden md:block lg:hidden shrink-0 px-3 pt-2 pb-2 bg-[#FAFAFA] border-b border-gray-200/70 z-10">
         <div className="grid grid-cols-2 p-1 bg-white rounded-xl border border-gray-200 shadow-xs">
           <button
             type="button"
@@ -1286,10 +1286,10 @@ export default function Pos(props: PosProps = {}) {
       </div>
 
       {/* Main Content Split - fully responsive */}
-      <div className="flex-1 min-h-0 flex flex-col lg:flex-row gap-4 sm:gap-5 md:gap-6 px-3 sm:px-4 md:px-6 py-3 sm:py-4 pb-4 sm:pb-6 overflow-hidden">
+      <div className="flex-1 min-h-0 flex flex-col lg:flex-row gap-4 sm:gap-5 md:gap-6 px-3 sm:px-4 md:px-6 py-3 sm:py-4 pb-4 sm:pb-6 overflow-hidden max-md:overflow-y-auto max-md:overscroll-y-contain">
 
         {/* LEFT COLUMN (Customer Details + Order Items) */}
-        <div className={`flex-[2.1] min-h-0 flex-col gap-4 sm:gap-6 overflow-y-auto lg:pb-4 ${mobilePanelView === 'catalogue' ? 'flex' : 'hidden lg:flex'}`}>
+        <div className={`flex-[2.1] min-h-0 flex-col gap-4 sm:gap-6 overflow-y-auto lg:pb-4 max-md:flex max-md:flex-none max-md:w-full max-md:min-h-fit max-md:overflow-visible ${mobilePanelView === 'catalogue' ? 'flex' : 'hidden lg:flex'}`}>
 
           {/* Customer Details Card */}
           <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-3.5 sm:p-4 md:p-5 shrink-0">
@@ -1691,7 +1691,7 @@ export default function Pos(props: PosProps = {}) {
           </div>
 
           {/* Mobile "View Bill & Checkout" Sticky Bar */}
-          <div className="lg:hidden sticky bottom-0 z-20 pt-2 pb-1 bg-gradient-to-t from-[#FAFAFA] via-[#FAFAFA] to-transparent">
+          <div className="hidden md:block lg:hidden sticky bottom-0 z-20 pt-2 pb-1 bg-gradient-to-t from-[#FAFAFA] via-[#FAFAFA] to-transparent">
             <button
               type="button"
               onClick={() => setMobilePanelView('bill')}
@@ -1710,8 +1710,8 @@ export default function Pos(props: PosProps = {}) {
         </div>
 
         {/* RIGHT COLUMN (Current Order & Payment Summary) */}
-        <div className={`flex-[1] min-w-0 lg:min-w-[340px] lg:max-w-[440px] flex-col min-h-0 h-full ${mobilePanelView === 'bill' ? 'flex' : 'hidden lg:flex'}`}>
-          <div className="flex min-h-0 h-full max-h-full flex-col overflow-hidden rounded-2xl border border-gray-200 bg-[#FBFAF6] shadow-sm">
+        <div className={`flex-[1] min-w-0 lg:min-w-[340px] lg:max-w-[440px] flex-col min-h-0 h-full max-md:flex max-md:flex-none max-md:h-auto max-md:max-h-none max-md:w-full max-md:max-w-none ${mobilePanelView === 'bill' ? 'flex' : 'hidden lg:flex'}`}>
+          <div className="flex min-h-0 h-full max-h-full flex-col overflow-hidden rounded-2xl border border-gray-200 bg-[#FBFAF6] shadow-sm max-md:h-auto max-md:max-h-none max-md:overflow-visible">
 
             {/* Header */}
             <div className="flex items-center justify-between p-3 border-b border-gray-200 bg-white shrink-0">
@@ -1720,7 +1720,7 @@ export default function Pos(props: PosProps = {}) {
                 <button
                   type="button"
                   onClick={() => setMobilePanelView('catalogue')}
-                  className="lg:hidden flex items-center justify-center h-8 px-2 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-bold gap-1 cursor-pointer"
+                  className="hidden md:flex lg:hidden items-center justify-center h-8 px-2 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-bold gap-1 cursor-pointer"
                   title="Back to items"
                 >
                   <span>←</span>
