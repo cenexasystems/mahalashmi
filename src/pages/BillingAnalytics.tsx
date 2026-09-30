@@ -349,6 +349,15 @@ export default function BillingAnalytics() {
     void loadData()
   }, [isAdmin, loadData])
 
+  useEffect(() => {
+    if (!isAdmin || !isSupabaseConfigured) return
+    const channel = supabase.channel('billing-analytics-orders-live')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, () => void loadData())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'advance_orders' }, () => void loadData())
+      .subscribe()
+    return () => { void supabase.removeChannel(channel) }
+  }, [isAdmin, loadData])
+
   const analytics = useMemo<AnalyticsModel>(() => {
     let dated = orders
     if (analyticsDateFrom) dated = dated.filter((order) => order.created_at >= `${analyticsDateFrom}T00:00:00`)

@@ -36,6 +36,18 @@ export type AdvancePayment = { id: string; advance_order_id: string; payment_typ
 const STORAGE_ORDERS_KEY = 'mahalashmi_stores_advance_orders_v1'
 const STORAGE_TIMELINE_KEY = 'mahalashmi_stores_advance_timeline_v1'
 const STORAGE_PAYMENTS_KEY = 'mahalashmi_stores_advance_payments_v1'
+const STORAGE_PENDING_ORDERS_KEY = 'mahalashmi_stores_pending_advance_orders_v1'
+
+const loadPendingOrderIds = (): string[] => {
+  try {
+    const raw = localStorage.getItem(STORAGE_PENDING_ORDERS_KEY)
+    return raw ? JSON.parse(raw) as string[] : []
+  } catch { return [] }
+}
+
+const savePendingOrderIds = (ids: string[]) => {
+  try { localStorage.setItem(STORAGE_PENDING_ORDERS_KEY, JSON.stringify([...new Set(ids)])) } catch { /* ignore */ }
+}
 
 const loadLocalOrders = (): AdvanceOrder[] => {
   try {
@@ -137,10 +149,12 @@ export async function listAdvanceOrders(): Promise<AdvanceOrder[]> {
     try {
       let remote = await fetchAll()
       const remoteIds = new Set(remote.map(order => order.id))
-      const localOnly = local.filter(order => !remoteIds.has(order.id))
+      const pendingIds = loadPendingOrderIds()
+      const localOnly = local.filter(order => pendingIds.includes(order.id) && !remoteIds.has(order.id))
 
-      // Older app versions saved failed server writes only in this device's
-      // browser. Upload those records so every device can read the same list.
+      // Upload only fallback writes explicitly queued by this client. A cached
+      // row missing remotely may have been deleted on another device, so never
+      // infer that every local-only row should be recreated.
       if (localOnly.length) {
         const { error } = await supabase.from('advance_orders').upsert(
           localOnly.map(order => ({
@@ -172,6 +186,7 @@ export async function listAdvanceOrders(): Promise<AdvanceOrder[]> {
           { onConflict: 'id', ignoreDuplicates: true }
         )
         if (error) throw error
+        savePendingOrderIds(pendingIds.filter(id => !localOnly.some(order => order.id === id)))
         remote = await fetchAll()
       }
 
@@ -189,12 +204,11 @@ export async function listAdvanceOrders(): Promise<AdvanceOrder[]> {
 
 export async function deleteAdvanceOrder(orderId: string): Promise<void> {
   if (isSupabaseConfigured) {
-    try {
-      const { error } = await supabase.from('advance_orders').delete().eq('id', orderId)
-      if (error) console.error('[deleteAdvanceOrder] Supabase error:', error.message)
-    } catch (err) { console.error('[deleteAdvanceOrder] Exception:', err) }
+    const { error } = await supabase.from('advance_orders').delete().eq('id', orderId)
+    if (error) throw new Error(`Unable to delete advance order from the server: ${error.message}`)
   }
 
+  savePendingOrderIds(loadPendingOrderIds().filter(id => id !== orderId))
   saveLocalOrders(loadLocalOrders().filter(o => o.id !== orderId))
   saveLocalTimeline(loadLocalTimeline().filter(t => t.advance_order_id !== orderId))
   saveLocalPayments(loadLocalPayments().filter(p => p.advance_order_id !== orderId))
@@ -278,6 +292,7 @@ export async function createAdvanceOrder(input: {
       invoice_number: null,
       final_payment_method: null,
     }
+    if (isSupabaseConfigured) savePendingOrderIds([...loadPendingOrderIds(), orderId])
 
     const currentTimeline = loadLocalTimeline()
     currentTimeline.push(

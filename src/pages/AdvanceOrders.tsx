@@ -38,12 +38,13 @@ const initialForm = { customerName: '', phone: '', address: '', productName: '',
 
 type AdvanceOrdersProps = {
   onOrderCompleted?: (order?: AdvanceOrder) => void
+  onOrderDeleted?: (order: AdvanceOrder) => void
 }
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) { return <label className="block"><span className="mb-1.5 block text-[11px] font-black uppercase tracking-wide text-[#6B7280]">{label}</span>{children}</label> }
 const inputClass = 'w-full rounded-xl border border-[#E5E7EB] bg-white px-3.5 py-2.5 text-sm text-[#273126] outline-none transition focus:border-[var(--accent-dark)] focus:ring-2 focus:ring-emerald-100'
 
-export default function AdvanceOrders({ onOrderCompleted }: AdvanceOrdersProps = {}) {
+export default function AdvanceOrders({ onOrderCompleted, onOrderDeleted }: AdvanceOrdersProps = {}) {
   const role = useAdminAuthStore(state => state.role)
   const products = useProductStore(state => state.products)
   const [orders, setOrders] = useState<AdvanceOrder[]>([])
@@ -190,6 +191,7 @@ export default function AdvanceOrders({ onOrderCompleted }: AdvanceOrdersProps =
     try {
       await deleteAdvanceOrder(order.id)
       setOrders(rows => rows.filter(row => row.id !== order.id))
+      onOrderDeleted?.(order)
       if (selected?.id === order.id) setSelected(null)
     } catch (err) {
       setError(getErrorMessage(err, 'Unable to delete advance order'))

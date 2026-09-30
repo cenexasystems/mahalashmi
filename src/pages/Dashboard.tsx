@@ -977,8 +977,24 @@ export default function Dashboard() {
     } else {
       if (!window.confirm(`Are you sure you want to completely delete order ${formatInvoiceNo(invoiceNo)}? This cannot be undone.`)) return
     }
-    // Clear FK reference in advance_orders first (if this order was created from an advance order)
-    await supabase.from('advance_orders').update({ completed_order_id: null }).eq('completed_order_id', orderId)
+    // A deleted completed advance bill must be removed from every analytics source.
+    const linkedAdvance = rawAdvanceOrders.find(order => order.completed_order_id === orderId)
+    if (linkedAdvance) {
+      const { error: advanceError } = await supabase.from('advance_orders')
+        .delete()
+        .eq('completed_order_id', orderId)
+      if (advanceError) {
+        alert(`Error deleting linked advance order: ${advanceError.message}`)
+        return
+      }
+      setRawAdvanceOrders(prev => prev.filter(order => order.id !== linkedAdvance.id))
+    } else {
+      const { error: linkError } = await supabase.from('advance_orders').update({ completed_order_id: null }).eq('completed_order_id', orderId)
+      if (linkError) {
+        alert(`Error updating linked advance order: ${linkError.message}`)
+        return
+      }
+    }
     const { error } = await supabase.from('orders').delete().eq('id', orderId)
     if (error) {
       alert(`Error deleting order: ${error.message}`)
@@ -988,6 +1004,7 @@ export default function Dashboard() {
     deletedOrderIds.current.add(orderId)
     setOrders(prev => prev.filter(o => o.id !== orderId))
     setSearchResults(prev => prev.filter(o => o.id !== orderId))
+    setOrderItems(prev => prev.filter(item => item.order_id !== orderId))
   }
 
   const getOrderWhatsAppPreview = (order: DashboardOrder) => {
@@ -1229,6 +1246,7 @@ export default function Dashboard() {
     const handleChange = () => debouncedLoadRef.current?.()
     const ch = supabase.channel('dashboard-live')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, handleChange)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'advance_orders' }, handleChange)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'order_items' }, handleChange)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'products' }, handleChange)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'expenses' }, handleChange)
@@ -3116,6 +3134,12 @@ export default function Dashboard() {
             onOrderCompleted={(adv) => {
               if (adv) handleAdvanceOrderCompleted(adv)
               void loadData()
+            }}
+            onOrderDeleted={(deletedOrder) => {
+              setRawAdvanceOrders(prev => prev.filter(order => order.id !== deletedOrder.id))
+              const deletedIds = new Set([deletedOrder.id, deletedOrder.completed_order_id].filter(Boolean) as string[])
+              setOrders(prev => prev.filter(order => !deletedIds.has(order.id)))
+              setSearchResults(prev => prev.filter(order => !deletedIds.has(order.id)))
             }}
           />
         )}
