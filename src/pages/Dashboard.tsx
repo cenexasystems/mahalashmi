@@ -374,7 +374,7 @@ export default function Dashboard() {
       invoice_pdf_url: '',
     }
     setOrders(current => [completed, ...current.filter(order => order.id !== completed.id)])
-    setSearchResults(current => [completed, ...current.filter(order => order.id !== completed.id)].slice(0, 100))
+    setSearchResults(current => [completed, ...current.filter(order => order.id !== completed.id)])
     setOrderItems(current => [...completedItems.map(item => ({ order_id: completed.id, product_name: String(item.name || 'Product'), category: String(item.category || advance.category || ''), quantity: Number(item.quantity || 1), line_total: Number(item.line_total || 0), is_manual: false })), ...current.filter(row => row.order_id !== completed.id)])
   }, [user?.id])
 
@@ -838,7 +838,7 @@ export default function Dashboard() {
         const ADV_PAGE = 1000
         const advRows: Record<string, unknown>[] = []
         for (let from = 0; ; from += ADV_PAGE) {
-          const { data: advPage } = await supabase
+          const { data: advPage, error: advError } = await supabase
             .from('advance_orders')
             .select('id, deposit_id, customer_name, phone, address, product_name, products, category, total_amount, completed_at, completed_order_id, invoice_number, final_payment_method, status, created_at')
             .eq('status', 'completed')
@@ -846,6 +846,7 @@ export default function Dashboard() {
             .order('created_at', { ascending: false })
             .order('id', { ascending: true })
             .range(from, from + ADV_PAGE - 1)
+          if (advError) throw advError
           advRows.push(...(advPage || []))
           if (!advPage || advPage.length < ADV_PAGE) break
         }
@@ -886,7 +887,7 @@ export default function Dashboard() {
       } catch (advErr) { console.error('Dashboard: advance orders fetch error', advErr) }
 
       setOrders(allOrders)
-      setSearchResults(allOrders.filter(o => normalizeOrderType(o.order_type) !== 'online_request').slice(0, 100))
+      setSearchResults(allOrders.filter(o => normalizeOrderType(o.order_type) !== 'online_request'))
       setCoupons((couponRes.data || []) as DashboardCoupon[])
       setExpenses(expList || [])
 
@@ -1265,49 +1266,49 @@ export default function Dashboard() {
       const custInput = search.customerName.trim()
       const hasQuery = Boolean(invInput || phoneInput || custInput)
 
-      let q = supabase.from('orders')
-        .select('id, invoice_no, customer_name, phone, address, created_at, total, status, order_mode, order_type, items, coupon_code, discount_amount, manual_discount_amount, delivery_charge, total_gst, gst_amount, payment_mode, payment_method, split_details, invoice_pdf_url, remarks, reference_number, is_credit, credit_due_date, credit_status, credit_paid_at')
-        .neq('order_type', 'online_request')
-        .order('created_at', { ascending: false })
-        .limit(hasQuery ? 1000 : 500)
+      const buildQuery = () => {
+        let q = supabase.from('orders')
+          .select('id, invoice_no, customer_name, phone, address, created_at, total, status, order_mode, order_type, items, coupon_code, discount_amount, manual_discount_amount, delivery_charge, total_gst, gst_amount, payment_mode, payment_method, split_details, invoice_pdf_url, remarks, reference_number, is_credit, credit_due_date, credit_status, credit_paid_at')
+          .neq('order_type', 'online_request')
+          .order('created_at', { ascending: false })
+          .order('id', { ascending: true })
 
-      if (invInput) {
-        const digitsOnly = invInput.replace(/\D/g, '')
-        const nonZeroDigits = digitsOnly.replace(/^0+/, '')
-        const conds = [`invoice_no.ilike.%${invInput}%`]
-        if (digitsOnly && digitsOnly !== invInput) conds.push(`invoice_no.ilike.%${digitsOnly}%`)
-        if (nonZeroDigits && nonZeroDigits !== digitsOnly && nonZeroDigits !== invInput) conds.push(`invoice_no.ilike.%${nonZeroDigits}%`)
-        q = q.or(conds.join(','))
-      }
-
-      if (phoneInput) {
-        const digitsOnly = phoneInput.replace(/\D/g, '')
-        if (digitsOnly && digitsOnly.length >= 4) {
-          q = q.or(`phone.ilike.%${phoneInput}%,phone.ilike.%${digitsOnly}%`)
-        } else {
-          q = q.ilike('phone', `%${phoneInput}%`)
+        if (invInput) {
+          const digitsOnly = invInput.replace(/\D/g, '')
+          const nonZeroDigits = digitsOnly.replace(/^0+/, '')
+          const conds = [`invoice_no.ilike.%${invInput}%`]
+          if (digitsOnly && digitsOnly !== invInput) conds.push(`invoice_no.ilike.%${digitsOnly}%`)
+          if (nonZeroDigits && nonZeroDigits !== digitsOnly && nonZeroDigits !== invInput) conds.push(`invoice_no.ilike.%${nonZeroDigits}%`)
+          q = q.or(conds.join(','))
         }
+
+        if (phoneInput) {
+          const digitsOnly = phoneInput.replace(/\D/g, '')
+          if (digitsOnly && digitsOnly.length >= 4) q = q.or(`phone.ilike.%${phoneInput}%,phone.ilike.%${digitsOnly}%`)
+          else q = q.ilike('phone', `%${phoneInput}%`)
+        }
+        if (custInput) q = q.ilike('customer_name', `%${custInput}%`)
+
+        // Apply date filters only if no specific text query is active or if custom date range was selected
+        if (!hasQuery || datePreset === 'custom') {
+          if (search.dateFrom) q = q.gte('created_at', new Date(`${search.dateFrom}T00:00:00`).toISOString())
+          if (search.dateTo) q = q.lte('created_at', new Date(`${search.dateTo}T23:59:59.999`).toISOString())
+        }
+        if (billTypeFilter === 'manual') q = q.eq('order_type', 'manual_sale')
+        else if (billTypeFilter === 'offline') q = q.eq('order_type', 'pos_sale').eq('order_mode', 'offline')
+        else if (billTypeFilter === 'online') q = q.eq('order_type', 'pos_sale').eq('order_mode', 'online')
+        return q
       }
 
-      if (custInput) {
-        q = q.ilike('customer_name', `%${custInput}%`)
+      const PAGE = 1000
+      const rows: Record<string, unknown>[] = []
+      for (let from = 0; ; from += PAGE) {
+        const { data, error } = await buildQuery().range(from, from + PAGE - 1)
+        if (error) throw error
+        rows.push(...((data || []) as Record<string, unknown>[]))
+        if (!data || data.length < PAGE) break
       }
-
-      // Apply date filters only if no specific text query is active or if custom date range was selected
-      if (!hasQuery || datePreset === 'custom') {
-        // Day bounds in the shop's local time (IST), sent as UTC instants
-        if (search.dateFrom) q = q.gte('created_at', new Date(`${search.dateFrom}T00:00:00`).toISOString())
-        if (search.dateTo)   q = q.lte('created_at', new Date(`${search.dateTo}T23:59:59.999`).toISOString())
-      }
-
-      if (billTypeFilter === 'manual')       q = q.eq('order_type', 'manual_sale')
-      else if (billTypeFilter === 'offline') q = q.eq('order_type', 'pos_sale').eq('order_mode', 'offline')
-      else if (billTypeFilter === 'online')  q = q.eq('order_type', 'pos_sale').eq('order_mode', 'online')
-
-      const { data, error } = await q
-      if (error) throw error
-
-      let results = (data || []).map(r => toDashboardOrder(r as Record<string, unknown>))
+      let results = rows.map(r => toDashboardOrder(r))
 
       // Client-side match filter to handle formatted invoice numbers (e.g. INV0000013 vs PB-20260716-000013)
       const matchOrder = (o: DashboardOrder) => {
@@ -1336,17 +1337,6 @@ export default function Dashboard() {
 
       if (hasQuery) {
         results = results.filter(matchOrder)
-      }
-
-      // Fallback: if query returned no results from Supabase, search in pre-loaded orders
-      if (hasQuery && results.length === 0 && orders.length > 0) {
-        const localMatches = orders.filter(o => {
-          if (normalizeOrderType(o.order_type) === 'online_request') return false
-          return matchOrder(o)
-        })
-        if (localMatches.length > 0) {
-          results = localMatches
-        }
       }
 
       setSearchResults(results.filter(o => !deletedOrderIds.current.has(o.id)))
@@ -3154,6 +3144,7 @@ export default function Dashboard() {
                   { v: 'all',     l: l('All Bills', 'அனைத்து') },
                   { v: 'offline', l: l('Offline', 'ஆஃப்லைன்') },
                   { v: 'online',  l: l('Online', 'ஆன்லைன்') },
+                  { v: 'manual',  l: l('Manual', 'கைமுறை') },
                 ] as const).map(({ v, l }) => (
                   <button key={v} type="button" onClick={() => setBillTypeFilter(v)}
                     className={`min-h-[44px] px-3 py-1.5 rounded-xl text-[12px] font-black transition-colors ${billTypeFilter === v ? 'bg-[#111111] text-white shadow-sm' : 'bg-[#F9FAFB] text-[#374151] hover:bg-[#E5E7EB]/40'}`}>

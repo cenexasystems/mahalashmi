@@ -118,24 +118,70 @@ export async function listAdvanceOrders(): Promise<AdvanceOrder[]> {
     // Never silently return this device's local cache after a remote failure:
     // that cache differs per device and was causing inconsistent bill counts.
     const PAGE = 1000
-    const rows: Record<string, unknown>[] = []
-    for (let from = 0; ; from += PAGE) {
-      const { data, error } = await supabase
-        .from('advance_orders')
-        .select('*')
-        .order('created_at', { ascending: false })
-        .order('id', { ascending: true })
-        .range(from, from + PAGE - 1)
-      if (error) {
-        console.error('[listAdvanceOrders] Supabase error:', error.message)
-        throw new Error(`Unable to load advance orders from the server: ${error.message}`)
+    const fetchAll = async () => {
+      const rows: Record<string, unknown>[] = []
+      for (let from = 0; ; from += PAGE) {
+        const { data, error } = await supabase
+          .from('advance_orders')
+          .select('*')
+          .order('created_at', { ascending: false })
+          .order('id', { ascending: true })
+          .range(from, from + PAGE - 1)
+        if (error) throw error
+        rows.push(...(data || []))
+        if (!data || data.length < PAGE) break
       }
-      rows.push(...(data || []))
-      if (!data || data.length < PAGE) break
+      return rows.map(row => normalizeOrder(row))
     }
-    const remote = rows.map(row => normalizeOrder(row))
-    saveLocalOrders(remote)
-    return remote
+
+    try {
+      let remote = await fetchAll()
+      const remoteIds = new Set(remote.map(order => order.id))
+      const localOnly = local.filter(order => !remoteIds.has(order.id))
+
+      // Older app versions saved failed server writes only in this device's
+      // browser. Upload those records so every device can read the same list.
+      if (localOnly.length) {
+        const { error } = await supabase.from('advance_orders').upsert(
+          localOnly.map(order => ({
+            id: order.id,
+            deposit_id: order.deposit_id,
+            customer_name: order.customer_name,
+            phone: order.phone,
+            address: order.address,
+            product_name: order.product_name,
+            products: order.products,
+            category: order.category,
+            description: order.description,
+            total_amount: order.total_amount,
+            deposit_amount: order.deposit_amount,
+            expected_delivery_date: order.expected_delivery_date || null,
+            status: order.status,
+            remarks: order.remarks,
+            reference_number: order.reference_number,
+            created_by_name: order.created_by_name,
+            created_at: order.created_at,
+            updated_at: order.updated_at,
+            completed_at: order.completed_at,
+            // Local fallback completions may refer to an order ID that was
+            // never created in Supabase, so do not send that foreign key.
+            completed_order_id: null,
+            invoice_number: order.invoice_number,
+            final_payment_method: order.final_payment_method,
+          })),
+          { onConflict: 'id', ignoreDuplicates: true }
+        )
+        if (error) throw error
+        remote = await fetchAll()
+      }
+
+      saveLocalOrders(remote)
+      return remote
+    } catch (err) {
+      console.error('[listAdvanceOrders] Supabase error:', err)
+      const message = err instanceof Error ? err.message : 'Unable to reach the server'
+      throw new Error(`Unable to sync/load all advance orders from the server: ${message}`)
+    }
   }
   return local
 }
