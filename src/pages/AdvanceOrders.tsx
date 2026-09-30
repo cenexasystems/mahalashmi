@@ -14,7 +14,7 @@ import {
   addAdvanceEvent, completeAdvanceOrder, createAdvanceOrder, deleteAdvanceOrder, getAdvanceOrderHistory, listAdvanceOrders, updateAdvanceStatus,
   type AdvanceOrder, type AdvancePayment, type AdvancePaymentMethod, type AdvanceStatus, type AdvanceTimeline,
 } from '../services/advanceOrderService'
-import { isInPreset } from '../lib/dateRanges'
+import { getPresetRange, toLocalDateStr } from '../lib/dateRanges'
 
 // Rupee icon for money KPIs
 const RupeeIcon = ({ size = 20, className = '' }: { size?: number; className?: string }) => (
@@ -24,7 +24,7 @@ const RupeeIcon = ({ size = 20, className = '' }: { size?: number; className?: s
   </svg>
 )
 
-type DateFilter = 'all' | 'today' | 'week' | 'month'
+type DatePreset = 'today' | 'week' | 'month' | 'year' | 'all' | 'custom'
 type StatusFilter = 'all' | 'pending' | 'ready' | 'completed' | 'cancelled'
 
 const STATUS_LABELS: Record<AdvanceStatus, string> = {
@@ -55,7 +55,9 @@ export default function AdvanceOrders({ onOrderCompleted }: AdvanceOrdersProps =
   const [saving, setSaving] = useState(false)
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
-  const [dateFilter, setDateFilter] = useState<DateFilter>('all')
+  const [datePreset, setDatePreset] = useState<DatePreset>('all')
+  const [fromDate, setFromDate] = useState('')
+  const [toDate, setToDate] = useState('')
   const [selected, setSelected] = useState<AdvanceOrder | null>(null)
   const [timeline, setTimeline] = useState<AdvanceTimeline[]>([])
   const [payments, setPayments] = useState<AdvancePayment[]>([])
@@ -67,6 +69,18 @@ export default function AdvanceOrders({ onOrderCompleted }: AdvanceOrdersProps =
   const [availableCoupons, setAvailableCoupons] = useState<{ code: string; percentage: number }[]>([])
   const [manualDiscount, setManualDiscount] = useState('')
   const [manualDiscountType, setManualDiscountType] = useState<'rm' | '%'>('rm')
+
+  const applyDatePreset = (preset: DatePreset) => {
+    if (preset === 'today' || preset === 'week' || preset === 'month' || preset === 'year') {
+      const { from, to } = getPresetRange(preset)
+      setFromDate(from)
+      setToDate(to)
+    } else {
+      setFromDate('')
+      setToDate('')
+    }
+    setDatePreset(preset)
+  }
 
   const load = useCallback(async () => {
     setLoading(true); setError('')
@@ -97,29 +111,34 @@ export default function AdvanceOrders({ onOrderCompleted }: AdvanceOrdersProps =
   }
 
   const analytics = useMemo(() => {
-    const activeOrders = orders.filter(o => o.status !== 'cancelled')
-    const completedOrders = orders.filter(o => o.status === 'completed')
-    const pendingOrders = orders.filter(o => !['completed', 'cancelled'].includes(o.status))
+    const datedOrders = orders.filter(order => {
+      if (fromDate || toDate) {
+        const orderDay = toLocalDateStr(new Date(order.created_at))
+        if (fromDate && orderDay < fromDate) return false
+        if (toDate && orderDay > toDate) return false
+      }
+      return true
+    })
+    const activeOrders = datedOrders.filter(o => o.status !== 'cancelled')
+    const pendingOrders = datedOrders.filter(o => !['completed', 'cancelled'].includes(o.status))
 
     const totalValue = activeOrders.reduce((sum, o) => sum + Number(o.total_amount || 0), 0)
-    const totalReceived = activeOrders.reduce((sum, o) => sum + (o.status === 'completed' ? Number(o.total_amount || 0) : Number(o.deposit_amount || 0)), 0)
+    // Deposit amount received (e.g. ₹600 from ₹1000 order)
+    const depositsReceived = activeOrders.reduce((sum, o) => sum + Number(o.deposit_amount || 0), 0)
     const outstanding = pendingOrders.reduce((sum, o) => sum + Number(o.remaining_balance || 0), 0)
-    const completedAmount = completedOrders.reduce((sum, o) => sum + Number(o.total_amount || 0), 0)
 
     return {
-      total: orders.length,
+      totalCount: datedOrders.length,
       activeCount: activeOrders.length,
       totalValue,
-      totalReceived,
-      receivedCount: activeOrders.length,
+      depositsReceived,
+      depositCount: activeOrders.length,
       outstanding,
       pendingCount: pendingOrders.length,
-      pending: orders.filter(o => o.status === 'pending_deposit' || o.status === 'waiting_final_payment').length,
-      ready: orders.filter(o => o.status === 'ready_for_delivery').length,
-      completed: completedOrders.length,
-      completedAmount,
+      pending: datedOrders.filter(o => o.status === 'pending_deposit' || o.status === 'waiting_final_payment').length,
+      ready: datedOrders.filter(o => o.status === 'ready_for_delivery').length,
     }
-  }, [orders])
+  }, [orders, fromDate, toDate])
 
   const filtered = useMemo(() => orders.filter(order => {
     const query = search.trim().toLowerCase()
@@ -129,12 +148,13 @@ export default function AdvanceOrders({ onOrderCompleted }: AdvanceOrdersProps =
     if (statusFilter === 'ready' && order.status !== 'ready_for_delivery') return false
     if (statusFilter === 'completed' && order.status !== 'completed') return false
     if (statusFilter === 'cancelled' && order.status !== 'cancelled') return false
-    if (dateFilter !== 'all') {
-      // Week = Monday–Sunday, Month = 1st–last day (shared ranges)
-      if (!isInPreset(order.created_at, dateFilter)) return false
+    if (fromDate || toDate) {
+      const orderDay = toLocalDateStr(new Date(order.created_at))
+      if (fromDate && orderDay < fromDate) return false
+      if (toDate && orderDay > toDate) return false
     }
     return true
-  }), [orders, search, statusFilter, dateFilter])
+  }), [orders, search, statusFilter, fromDate, toDate])
 
   const create = async (event: FormEvent) => {
     event.preventDefault(); setSaving(true); setError(''); setNotice('')
@@ -250,9 +270,9 @@ export default function AdvanceOrders({ onOrderCompleted }: AdvanceOrdersProps =
 
   const cards = [
     {
-      label: 'Total Amount Received',
-      value: formatCurrency(analytics.totalReceived),
-      subtext: `${analytics.receivedCount} Bills with Deposit / Full Pay`,
+      label: 'Deposit Amount Received',
+      value: formatCurrency(analytics.depositsReceived),
+      subtext: `${analytics.depositCount} Deposit Bills Collected`,
       Icon: RupeeIcon,
       color: 'text-emerald-700 bg-emerald-50 border-emerald-200'
     },
@@ -266,16 +286,9 @@ export default function AdvanceOrders({ onOrderCompleted }: AdvanceOrdersProps =
     {
       label: 'Total Advance Orders Value',
       value: formatCurrency(analytics.totalValue),
-      subtext: `${analytics.total} Total Orders`,
+      subtext: `${analytics.totalCount} Total Advance Orders`,
       Icon: FileText,
       color: 'text-fuchsia-700 bg-fuchsia-50 border-fuchsia-200'
-    },
-    {
-      label: 'Completed Advance Orders',
-      value: formatCurrency(analytics.completedAmount),
-      subtext: `${analytics.completed} Completed Bills`,
-      Icon: CheckCircle2,
-      color: 'text-teal-700 bg-teal-50 border-teal-200'
     },
     {
       label: 'Ready For Delivery',
@@ -285,7 +298,7 @@ export default function AdvanceOrders({ onOrderCompleted }: AdvanceOrdersProps =
       color: 'text-blue-700 bg-blue-50 border-blue-200'
     },
     {
-      label: 'Pending Deposit Orders',
+      label: 'Pending Orders',
       value: `${analytics.pending}`,
       subtext: 'Awaiting balance or confirmation',
       Icon: Clock3,
@@ -294,10 +307,10 @@ export default function AdvanceOrders({ onOrderCompleted }: AdvanceOrdersProps =
   ]
 
   return <div className="space-y-5">
-    <div className="flex flex-wrap items-center justify-between gap-3"><div><p className="text-xs font-black uppercase tracking-[.18em] text-emerald-600">Separate from sales</p><h2 className="text-2xl font-black text-[#273126]">Advance Orders</h2><p className="mt-1 text-sm text-[#6B7280]">Deposits never count as revenue. Full order value is recognized only after final payment.</p></div><div className="flex gap-2"><button onClick={() => void load()} className="rounded-xl border bg-white p-3 text-[#647064]" title="Refresh"><RefreshCw size={18}/></button></div></div>
+    <div className="flex flex-wrap items-center justify-between gap-3"><div><p className="text-xs font-black uppercase tracking-[.18em] text-emerald-600">Separate from sales</p><h2 className="text-2xl font-black text-[#273126]">Advance Orders</h2><p className="mt-1 text-sm text-[#6B7280]">Deposits are tracked separately. Full order value is recognized once final payment is completed.</p></div><div className="flex gap-2"><button onClick={() => void load()} className="rounded-xl border bg-white p-3 text-[#647064]" title="Refresh"><RefreshCw size={18}/></button></div></div>
     {error && <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">{error}</div>}
     {notice && <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700">{notice}</div>}
-    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
       {cards.map((c) => (
         <div key={c.label} className="rounded-2xl border border-[#ECE9E2] bg-white p-4 shadow-sm flex flex-col justify-between">
           <div className="flex items-start justify-between gap-2">
@@ -311,7 +324,81 @@ export default function AdvanceOrders({ onOrderCompleted }: AdvanceOrdersProps =
         </div>
       ))}
     </div>
-    <div className="rounded-2xl border border-[#ECE9E2] bg-white p-4 shadow-sm"><div className="grid gap-3 lg:grid-cols-[1fr_auto_auto]"><label className="relative"><Search className="absolute left-3 top-3 text-[#9CA3AF]" size={17}/><input className={`${inputClass} pl-10`} value={search} onChange={e => setSearch(e.target.value)} placeholder="Search Deposit ID, customer, phone, product or status"/></label><div className="flex flex-wrap gap-2">{(['all','pending','ready','completed','cancelled'] as StatusFilter[]).map(value => <button key={value} onClick={() => setStatusFilter(value)} className={`rounded-lg px-3 py-2 text-xs font-black capitalize ${statusFilter === value ? 'bg-[var(--accent-dark)] text-white' : 'bg-[#F5F3F7] text-[#626B61]'}`}>{value}</button>)}</div><select className={inputClass} value={dateFilter} onChange={e => setDateFilter(e.target.value as DateFilter)}><option value="all">All Dates</option><option value="today">Today</option><option value="week">This Week</option><option value="month">This Month</option></select></div></div>
+
+    {/* Filter by Sale Date & Status */}
+    <div className="rounded-2xl border border-[#ECE9E2] bg-white p-4 shadow-sm space-y-3">
+      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+        <label className="relative flex-1">
+          <Search className="absolute left-3 top-3 text-[#9CA3AF]" size={17}/>
+          <input
+            className={`${inputClass} pl-10`}
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="Search Deposit ID, customer, phone, product or status"
+          />
+        </label>
+        <div className="flex flex-wrap gap-1.5">
+          {(['all','pending','ready','completed','cancelled'] as StatusFilter[]).map(value => (
+            <button
+              key={value}
+              type="button"
+              onClick={() => setStatusFilter(value)}
+              className={`rounded-lg px-3 py-2 text-xs font-black capitalize transition-colors cursor-pointer ${statusFilter === value ? 'bg-[var(--accent-dark)] text-white' : 'bg-[#F5F3F7] text-[#626B61] hover:bg-[#EAE7EE]'}`}
+            >
+              {value}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="space-y-2 border-t border-gray-100 pt-3">
+        <p className="text-xs font-bold text-gray-500">Filter by Date</p>
+        <div className="flex flex-wrap gap-2">
+          {([
+            ['today', 'Today'],
+            ['week', 'This Week'],
+            ['month', 'This Month'],
+            ['year', 'This Year'],
+            ['all', 'All'],
+          ] as const).map(([value, label]) => (
+            <button
+              key={value}
+              type="button"
+              onClick={() => applyDatePreset(value)}
+              className={`rounded-lg px-3 py-1.5 text-xs font-bold transition-colors cursor-pointer ${datePreset === value ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+          <div>
+            <label className="block text-[11px] font-bold text-gray-500 mb-1">From Date</label>
+            <input
+              type="date"
+              value={fromDate}
+              onChange={(e) => {
+                setFromDate(e.target.value)
+                setDatePreset('custom')
+              }}
+              className="w-full px-3.5 py-2 bg-white border border-gray-200 rounded-xl text-xs font-semibold text-gray-800 outline-none focus:border-[var(--accent)]"
+            />
+          </div>
+          <div>
+            <label className="block text-[11px] font-bold text-gray-500 mb-1">To Date</label>
+            <input
+              type="date"
+              value={toDate}
+              onChange={(e) => {
+                setToDate(e.target.value)
+                setDatePreset('custom')
+              }}
+              className="w-full px-3.5 py-2 bg-white border border-gray-200 rounded-xl text-xs font-semibold text-gray-800 outline-none focus:border-[var(--accent)]"
+            />
+          </div>
+        </div>
+      </div>
+    </div>
     <div className="rounded-2xl border border-[#ECE9E2] bg-white shadow-sm flex flex-col">
       <div className="overflow-x-auto overscroll-x-contain">
         <table className="w-full text-left text-sm whitespace-nowrap">

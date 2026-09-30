@@ -37,6 +37,12 @@ export interface AnalyticsExportData {
   totalCouponOrders: number
   couponUsageRate: number
   couponDailyTrend?: Array<{ day: string; date: string; orders: number; discounts: number }>
+  completedAdvanceRevenue?: number
+  completedAdvanceCount?: number
+  advanceDepositsReceived?: number
+  advanceOrdersCount?: number
+  creditBillsReceived?: number
+  creditBillsPaidCount?: number
 }
 
 export type AnalyticsTabKey = 'revenue' | 'today' | 'products' | 'categories' | 'coupons' | string
@@ -87,6 +93,12 @@ export async function exportAnalyticsToExcel({ data, activeTab, datePreset, date
     rows.push(['Offline Bills Count', String(data.offlineOrderCount)])
     rows.push(['Online Revenue (INR)', data.onlinePosRevenue.toFixed(2)])
     rows.push(['Online Bills Count', String(data.onlineBillCount)])
+    rows.push(['Completed Advance Orders Revenue (INR)', (data.completedAdvanceRevenue || 0).toFixed(2)])
+    rows.push(['Completed Advance Orders Count', String(data.completedAdvanceCount || 0)])
+    rows.push(['Advance Deposits Received (INR)', (data.advanceDepositsReceived || 0).toFixed(2)])
+    rows.push(['Advance Deposits Count', String(data.advanceOrdersCount || 0)])
+    rows.push(['Credit Bills Received (INR)', (data.creditBillsReceived || 0).toFixed(2)])
+    rows.push(['Credit Bills Settled Count', String(data.creditBillsPaidCount || 0)])
     rows.push(['Total Items Sold', String(Math.round(data.totalProductsSold))])
     rows.push(['Average Revenue Per Bill (INR)', data.averageRevenuePerBill.toFixed(2)])
     rows.push(['Top Performing Product', data.bestProduct])

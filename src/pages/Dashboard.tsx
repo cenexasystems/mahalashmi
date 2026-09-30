@@ -50,6 +50,7 @@ import AdvanceOrders from './AdvanceOrders'
 import ExpiryAlerts from './ExpiryAlerts'
 import BirthdayDashboard from '../components/dashboard/BirthdayDashboard'
 import type { AdvanceOrder } from '../services/advanceOrderService'
+import { listAdvanceOrders } from '../services/advanceOrderService'
 import { InventoryTable } from '../components/inventory/InventoryTable'
 import { ExpensesView } from '../components/expenses/ExpensesView'
 import { expenseService, type ExpenseRecord } from '../services/expenseService'
@@ -261,6 +262,7 @@ export default function Dashboard() {
   const [analyticsDateFrom, setAnalyticsDateFrom] = useState('')
   const [analyticsDateTo, setAnalyticsDateTo] = useState('')
   const [expenses, setExpenses] = useState<ExpenseRecord[]>([])
+  const [rawAdvanceOrders, setRawAdvanceOrders] = useState<AdvanceOrder[]>([])
 
   // Order Management bill type filter
   const [billTypeFilter, setBillTypeFilter] = useState<'all' | 'offline' | 'online' | 'manual'>('all')
@@ -689,6 +691,34 @@ export default function Dashboard() {
       .sort((a, b) => b[1] - a[1]).slice(0, 8)
       .map(([name, count]) => ({ name, count }))
 
+    // --- Advance Orders analytics ---
+    // Filter by the same global date range (use created_at of the order)
+    const datedAdvance = rawAdvanceOrders.filter(a => {
+      const dateStr = toLocalDateStr(new Date(a.created_at))
+      if (analyticsDateFrom && dateStr < analyticsDateFrom) return false
+      if (analyticsDateTo   && dateStr > analyticsDateTo)   return false
+      return true
+    })
+    // Deposit received = sum of deposit_amount across all non-cancelled advance orders in period
+    const advanceDepositsReceived = datedAdvance
+      .filter(a => a.status !== 'cancelled')
+      .reduce((s, a) => s + (Number(a.deposit_amount) || 0), 0)
+    const advanceOrdersCount = datedAdvance.filter(a => a.status !== 'cancelled').length
+
+    // Completed advance orders = total_amount of completed orders in period
+    const completedAdvance = datedAdvance.filter(a => a.status === 'completed')
+    const completedAdvanceRevenue = completedAdvance.reduce((s, a) => s + (Number(a.total_amount) || 0), 0)
+    const completedAdvanceCount = completedAdvance.length
+
+    // --- Credit Bills analytics ---
+    // Credit bills that have been paid (settled) within the filtered date range
+    // Use credit_paid_at date for matching — same convention as Order History
+    const paidCreditOrders = dated.filter(o =>
+      o.is_credit && o.credit_status === 'paid' && o.credit_paid_at
+    )
+    const creditBillsReceived = paidCreditOrders.reduce((s, o) => s + getOrderTotal(o), 0)
+    const creditBillsPaidCount = paidCreditOrders.length
+
     return {
       totalCompletedRevenue: completedRevenue,
       averageRevenuePerBill,
@@ -743,8 +773,14 @@ export default function Dashboard() {
       totalExpenses,
       netProfit,
       isProfitable,
+      completedAdvanceRevenue,
+      completedAdvanceCount,
+      advanceDepositsReceived,
+      advanceOrdersCount,
+      creditBillsReceived,
+      creditBillsPaidCount,
     }
-  }, [orders, orderItems, products, expenses, analyticsDateFrom, analyticsDateTo])
+  }, [orders, orderItems, products, expenses, analyticsDateFrom, analyticsDateTo, rawAdvanceOrders])
 
   // Bill-type filtered results for Order Management table (client-side, instant)
   const filteredSearchResults = useMemo(() => {
@@ -843,6 +879,12 @@ export default function Dashboard() {
       setSearchResults(allOrders.filter(o => normalizeOrderType(o.order_type) !== 'online_request').slice(0, 100))
       setCoupons((couponRes.data || []) as DashboardCoupon[])
       setExpenses(expList || [])
+
+      // Fetch all advance orders for deposit-received analytics
+      try {
+        const advList = await listAdvanceOrders()
+        setRawAdvanceOrders(advList || [])
+      } catch (advListErr) { console.error('Dashboard: listAdvanceOrders error', advListErr) }
 
       // The legacy order_items table is only used for bills with no items stored on
       // the bill, so only those ids are sent (sending every id overflows the URL).
@@ -1612,6 +1654,34 @@ export default function Dashboard() {
                   </div>
                 </div>
               ))}
+            </div>
+
+            {/* Advance Orders & Credit KPI Cards */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="bg-gradient-to-br from-violet-50 via-purple-50/80 to-fuchsia-50 rounded-2xl border border-white/40 p-4 sm:p-5 shadow-sm backdrop-blur-sm flex flex-col justify-between">
+                <div className="flex items-center justify-between gap-1 mb-2">
+                  <p className="text-[11px] uppercase font-black text-[#374151] tracking-wider leading-tight">Completed Advance Orders</p>
+                  <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center text-white shrink-0 shadow-sm"><Package size={14} /></div>
+                </div>
+                <p className="text-[21px] sm:text-[23px] font-black text-[#111111] break-words leading-tight">{formatCurrency(analytics.completedAdvanceRevenue ?? 0)}</p>
+                <p className="text-[11px] text-[#6B7280] mt-1">{analytics.completedAdvanceCount ?? 0} {(analytics.completedAdvanceCount ?? 0) === 1 ? 'order' : 'orders'}</p>
+              </div>
+              <div className="bg-gradient-to-br from-sky-50 via-blue-50/80 to-indigo-50 rounded-2xl border border-white/40 p-4 sm:p-5 shadow-sm backdrop-blur-sm flex flex-col justify-between">
+                <div className="flex items-center justify-between gap-1 mb-2">
+                  <p className="text-[11px] uppercase font-black text-[#374151] tracking-wider leading-tight">Advance Deposits Received</p>
+                  <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-sky-400 to-blue-600 flex items-center justify-center text-white shrink-0 shadow-sm"><Wallet size={14} /></div>
+                </div>
+                <p className="text-[21px] sm:text-[23px] font-black text-[#111111] break-words leading-tight">{formatCurrency(analytics.advanceDepositsReceived ?? 0)}</p>
+                <p className="text-[11px] text-[#6B7280] mt-1">{analytics.advanceOrdersCount ?? 0} {(analytics.advanceOrdersCount ?? 0) === 1 ? 'order' : 'orders'}</p>
+              </div>
+              <div className="bg-gradient-to-br from-rose-50 via-red-50/80 to-orange-50 rounded-2xl border border-white/40 p-4 sm:p-5 shadow-sm backdrop-blur-sm flex flex-col justify-between">
+                <div className="flex items-center justify-between gap-1 mb-2">
+                  <p className="text-[11px] uppercase font-black text-[#374151] tracking-wider leading-tight">Credit Bills Received</p>
+                  <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-rose-400 to-red-600 flex items-center justify-center text-white shrink-0 shadow-sm"><Receipt size={14} /></div>
+                </div>
+                <p className="text-[21px] sm:text-[23px] font-black text-[#111111] break-words leading-tight">{formatCurrency(analytics.creditBillsReceived ?? 0)}</p>
+                <p className="text-[11px] text-[#6B7280] mt-1">{analytics.creditBillsPaidCount ?? 0} {(analytics.creditBillsPaidCount ?? 0) === 1 ? 'bill' : 'bills'} settled</p>
+              </div>
             </div>
 
             {/* Latest POS Bills */}
@@ -2458,6 +2528,34 @@ export default function Dashboard() {
                       <p className="text-[12px] text-[#6B7280] leading-snug" title={card.helper}>{card.helper}</p>
                     </div>
                   ))}
+                </div>
+
+                {/* Advance Orders & Credit Bills KPI Cards */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div className="bg-white rounded-card border border-borderLight p-5 shadow-soft flex flex-col justify-between hover:shadow-md transition-shadow">
+                    <div className="flex items-start justify-between gap-2 mb-3">
+                      <p className="text-[11px] font-bold text-[#111111]">Completed Advance Orders</p>
+                      <div className="w-9 h-9 rounded-xl border border-violet-200 bg-violet-50 flex items-center justify-center text-violet-600 shrink-0 shadow-sm"><Package size={16} /></div>
+                    </div>
+                    <p className="text-[22px] sm:text-[24px] font-bold text-[#111111] leading-tight">{formatCurrency(analytics.completedAdvanceRevenue ?? 0)}</p>
+                    <p className="text-[12px] text-[#6B7280] mt-1">{analytics.completedAdvanceCount ?? 0} {(analytics.completedAdvanceCount ?? 0) === 1 ? 'order' : 'orders'} completed</p>
+                  </div>
+                  <div className="bg-white rounded-card border border-borderLight p-5 shadow-soft flex flex-col justify-between hover:shadow-md transition-shadow">
+                    <div className="flex items-start justify-between gap-2 mb-3">
+                      <p className="text-[11px] font-bold text-[#111111]">Advance Deposits Received</p>
+                      <div className="w-9 h-9 rounded-xl border border-sky-200 bg-sky-50 flex items-center justify-center text-sky-600 shrink-0 shadow-sm"><Wallet size={16} /></div>
+                    </div>
+                    <p className="text-[22px] sm:text-[24px] font-bold text-[#111111] leading-tight">{formatCurrency(analytics.advanceDepositsReceived ?? 0)}</p>
+                    <p className="text-[12px] text-[#6B7280] mt-1">{analytics.advanceOrdersCount ?? 0} {(analytics.advanceOrdersCount ?? 0) === 1 ? 'order' : 'orders'} active</p>
+                  </div>
+                  <div className="bg-white rounded-card border border-borderLight p-5 shadow-soft flex flex-col justify-between hover:shadow-md transition-shadow">
+                    <div className="flex items-start justify-between gap-2 mb-3">
+                      <p className="text-[11px] font-bold text-[#111111]">Credit Bills Received</p>
+                      <div className="w-9 h-9 rounded-xl border border-rose-200 bg-rose-50 flex items-center justify-center text-rose-600 shrink-0 shadow-sm"><Receipt size={16} /></div>
+                    </div>
+                    <p className="text-[22px] sm:text-[24px] font-bold text-[#111111] leading-tight">{formatCurrency(analytics.creditBillsReceived ?? 0)}</p>
+                    <p className="text-[12px] text-[#6B7280] mt-1">{analytics.creditBillsPaidCount ?? 0} {(analytics.creditBillsPaidCount ?? 0) === 1 ? 'bill' : 'bills'} settled</p>
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
