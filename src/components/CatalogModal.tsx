@@ -218,43 +218,87 @@ export default function CatalogModal({ isOpen, onClose, onAdd }: CatalogModalPro
                 </div>
               ) : (
                 <div className="flex flex-col gap-3">
-                  {filtered.map(product => (
-                    <div key={product.id}
-                      className="bg-white border border-[#E5E7EB]/60 rounded-2xl p-4 hover:border-[var(--accent-a40)] hover:shadow-md transition-all group">
-                      <div className="flex items-start justify-between gap-3">
-                        <div onClick={() => onAdd(product)} className="cursor-pointer flex-1 min-w-0">
-                          <h4 className="text-[15px] font-black text-[#111111] leading-tight break-words group-hover:text-[var(--accent)] transition-colors">{product.name}</h4>
-                          {product.location && /^[a-zA-Z0-9\s,\-./]+$/.test(product.location) && (
-                            <p className="flex items-center gap-1 text-[10px] font-bold text-[var(--accent)] mt-1">
-                              <MapPin size={11} /> {product.location}
-                            </p>
-                          )}
-                          <span className="inline-flex items-center gap-1.5 mt-2 px-2.5 py-1 rounded-lg bg-blue-50 border border-blue-200 text-blue-600 text-[10px] font-black uppercase tracking-wider">
-                            <Package size={12} /> Product
-                          </span>
+                  {filtered.map(product => {
+                    const isUnregistered = product.category === 'Unregistered'
+                    const stockNum = isUnregistered ? 999999 : (product.stockQuantity ?? product.stock ?? 0)
+                    const isOutOfStock = !product.hasVariants && !isUnregistered && stockNum <= 0
+
+                    const handleProductClick = () => {
+                      if (isOutOfStock) {
+                        play('error')
+                        return
+                      }
+                      onAdd(product)
+                    }
+
+                    return (
+                      <div key={product.id}
+                        className={`bg-white border rounded-2xl p-4 transition-all group ${
+                          isOutOfStock
+                            ? 'border-red-200 bg-red-50/20 opacity-75'
+                            : 'border-[#E5E7EB]/60 hover:border-[var(--accent-a40)] hover:shadow-md'
+                        }`}>
+                        <div className="flex items-start justify-between gap-3">
+                          <div onClick={handleProductClick} className={`flex-1 min-w-0 ${isOutOfStock ? 'cursor-not-allowed' : 'cursor-pointer'}`}>
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <h4 className={`text-[15px] font-black leading-tight break-words transition-colors ${
+                                isOutOfStock ? 'text-gray-500' : 'text-[#111111] group-hover:text-[var(--accent)]'
+                              }`}>{product.name}</h4>
+                              {isOutOfStock && (
+                                <span className="px-2 py-0.5 rounded-md bg-red-100 border border-red-200 text-red-700 text-[10px] font-black uppercase tracking-wider">
+                                  Out of Stock
+                                </span>
+                              )}
+                            </div>
+                            {product.location && /^[a-zA-Z0-9\s,\-./]+$/.test(product.location) && (
+                              <p className="flex items-center gap-1 text-[10px] font-bold text-[var(--accent)] mt-1">
+                                <MapPin size={11} /> {product.location}
+                              </p>
+                            )}
+                            <div className="flex items-center gap-1.5 mt-2 flex-wrap">
+                              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-blue-50 border border-blue-200 text-blue-600 text-[10px] font-black uppercase tracking-wider">
+                                <Package size={12} /> Product
+                              </span>
+                              {product.hasVariants ? (
+                                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-purple-50 border border-purple-200 text-purple-700 text-[10px] font-black uppercase tracking-wider">
+                                  Has Variants
+                                </span>
+                              ) : !isUnregistered && (
+                                <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border text-[10px] font-black uppercase tracking-wider ${
+                                  isOutOfStock
+                                    ? 'bg-red-50 border-red-200 text-red-600'
+                                    : 'bg-emerald-50 border-emerald-200 text-emerald-700'
+                                }`}>
+                                  Stock: {stockNum}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          <div className="flex gap-1.5 shrink-0 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
+                            <button onClick={(e) => { e.stopPropagation(); startEdit(product) }} title="Edit product"
+                              className="p-2 rounded-lg bg-white border border-[#E5E7EB]/60 text-[#374151] hover:text-[var(--accent)] hover:border-[var(--accent-a40)] shadow-sm transition-colors">
+                              <Edit2 size={15} />
+                            </button>
+                            <button onClick={(e) => { e.stopPropagation(); void handleDelete(product) }} title="Delete product"
+                              className="p-2 rounded-lg bg-white border border-[#E5E7EB]/60 text-red-400 hover:text-red-600 hover:border-red-300 shadow-sm transition-colors">
+                              <Trash2 size={15} />
+                            </button>
+                          </div>
                         </div>
-                        <div className="flex gap-1.5 shrink-0 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
-                          <button onClick={(e) => { e.stopPropagation(); startEdit(product) }} title="Edit product"
-                            className="p-2 rounded-lg bg-white border border-[#E5E7EB]/60 text-[#374151] hover:text-[var(--accent)] hover:border-[var(--accent-a40)] shadow-sm transition-colors">
-                            <Edit2 size={15} />
-                          </button>
-                          <button onClick={(e) => { e.stopPropagation(); void handleDelete(product) }} title="Delete product"
-                            className="p-2 rounded-lg bg-white border border-[#E5E7EB]/60 text-red-400 hover:text-red-600 hover:border-red-300 shadow-sm transition-colors">
-                            <Trash2 size={15} />
-                          </button>
+                        <div onClick={handleProductClick} className={`flex items-end justify-between mt-3 pt-3 border-t border-[#E5E7EB]/40 ${
+                          isOutOfStock ? 'cursor-not-allowed' : 'cursor-pointer'
+                        }`}>
+                          <div>
+                            <span className={`text-[18px] font-black ${isOutOfStock ? 'text-gray-400' : 'text-[#111111]'}`}>₹{product.price}</span>
+                            {!!product.purchasePrice && (
+                              <p className="text-[11px] font-semibold text-[#9CA3AF] mt-0.5">Cost: ₹{product.purchasePrice}</p>
+                            )}
+                          </div>
+                          <span className="text-[10px] font-black text-[#374151] uppercase tracking-wider bg-[#F9FAFB] px-2.5 py-1.5 rounded-lg border border-[#E5E7EB]/60">{product.category}</span>
                         </div>
                       </div>
-                      <div onClick={() => onAdd(product)} className="cursor-pointer flex items-end justify-between mt-3 pt-3 border-t border-[#E5E7EB]/40">
-                        <div>
-                          <span className="text-[18px] font-black text-[#111111]">₹{product.price}</span>
-                          {!!product.purchasePrice && (
-                            <p className="text-[11px] font-semibold text-[#9CA3AF] mt-0.5">Cost: ₹{product.purchasePrice}</p>
-                          )}
-                        </div>
-                        <span className="text-[10px] font-black text-[#374151] uppercase tracking-wider bg-[#F9FAFB] px-2.5 py-1.5 rounded-lg border border-[#E5E7EB]/60">{product.category}</span>
-                      </div>
-                    </div>
-                  ))}
+                    )
+                  })}
                 </div>
               )}
             </div>

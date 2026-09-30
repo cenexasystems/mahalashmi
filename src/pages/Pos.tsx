@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import {
   Search, Trash2, Plus, Receipt, Printer,
   RefreshCw, ShoppingBag, MessageCircle,
-  X, ChevronDown, Power
+  X, ChevronDown, Power, AlertCircle
 } from 'lucide-react'
 import { isSupabaseConfigured, supabase } from '../lib/supabase'
 import { getErrorMessage } from '../lib/errorMessage'
@@ -289,14 +289,20 @@ export default function Pos(props: PosProps = {}) {
     setMobilePanelView('catalogue')
 
     if (specificVariant) {
+      const vStock = Number(specificVariant.stock) || 0
+      if (vStock <= 0) {
+        setError(`"${product.name} - ${specificVariant.variantName}" is out of stock (Stock: 0)`)
+        return
+      }
+
       const variantProduct: Product = {
         ...product,
         id: specificVariant.id,
         name: `${product.name} - ${specificVariant.variantName}`,
         price: specificVariant.price,
         offerPrice: null,
-        stock: specificVariant.stock,
-        stockQuantity: specificVariant.stock,
+        stock: vStock,
+        stockQuantity: vStock,
         hasVariants: false,
         unitType: 'unit',
         baseQuantity: 1,
@@ -311,6 +317,10 @@ export default function Pos(props: PosProps = {}) {
           item.parentProductId = String(product.id)
           return [item, ...cur]
         }
+        if (ex.qty + 1 > vStock) {
+          setError(`"${variantProduct.name}" cannot exceed available stock (${vStock})`)
+          return cur
+        }
         return cur.map(i => (i.variantId === specificVariant.id || String(i.id) === String(specificVariant.id)) ? recalc(i, i.qty + 1) : i)
       })
       return
@@ -324,17 +334,25 @@ export default function Pos(props: PosProps = {}) {
           vars = await fetchVariantsByProduct(String(product.id))
         }
 
-        if (vars && vars.length > 1) {
-          // Multiple variants: open variant picker
-          setAvailableVariants(vars)
-          setVariantPickerProduct(product)
-          setSelectedVariant(vars[0])
-          setVariantPickerQty(1)
-          return
-        } else if (vars && vars.length === 1) {
-          // Only 1 variant: add it directly
-          void addItem(product, vars[0])
-          return
+        if (vars && vars.length > 0) {
+          const inStockVars = vars.filter(v => (Number(v.stock) || 0) > 0)
+          if (inStockVars.length === 0) {
+            setError(`"${product.name}" is completely out of stock across all sizes/variants`)
+            return
+          }
+
+          if (vars.length > 1) {
+            // Multiple variants: open variant picker
+            setAvailableVariants(vars)
+            setVariantPickerProduct(product)
+            setSelectedVariant(inStockVars[0] || vars[0])
+            setVariantPickerQty(1)
+            return
+          } else if (vars.length === 1) {
+            // Only 1 variant: add it directly
+            void addItem(product, vars[0])
+            return
+          }
         }
       } catch (err) {
         console.warn('Failed to load variants for product:', err)
@@ -342,9 +360,20 @@ export default function Pos(props: PosProps = {}) {
     }
 
     // Standard non-variant product
+    const isUnregistered = product.category === 'Unregistered'
+    const pStock = isUnregistered ? 999999 : (product.stockQuantity ?? product.stock ?? 0)
+    if (!isUnregistered && pStock <= 0) {
+      setError(`"${product.name}" is out of stock (Stock: 0)`)
+      return
+    }
+
     setItems(cur => {
       const ex = cur.find(i => String(i.id) === String(product.id))
       if (!ex) return [makePosItem(product), ...cur]
+      if (!isUnregistered && ex.qty + 1 > pStock) {
+        setError(`"${product.name}" cannot exceed available stock (${pStock})`)
+        return cur
+      }
       return cur.map(i => String(i.id) === String(product.id) ? recalc(i, i.qty + 1) : i)
     })
   }
@@ -352,20 +381,33 @@ export default function Pos(props: PosProps = {}) {
   const addVariantToItems = () => {
     if (!variantPickerProduct || !selectedVariant) return
     setError('')
+    const vStock = Number(selectedVariant.stock) || 0
+    if (vStock <= 0) {
+      setError(`"${variantPickerProduct.name} - ${selectedVariant.variantName}" is out of stock`)
+      return
+    }
+
+    const addQty = Math.max(1, variantPickerQty)
+    if (addQty > vStock) {
+      setError(`Quantity (${addQty}) exceeds available stock (${vStock})`)
+      return
+    }
+
     const variantProduct: Product = {
       ...variantPickerProduct,
       id: selectedVariant.id,
       name: `${variantPickerProduct.name} - ${selectedVariant.variantName}`,
       price: selectedVariant.price,
       offerPrice: null,
-      stock: selectedVariant.stock,
-      stockQuantity: selectedVariant.stock,
+      stock: vStock,
+      stockQuantity: vStock,
       hasVariants: false,
       unitType: 'unit',
       baseQuantity: 1,
       unitLabel: selectedVariant.sizeLabel || variantPickerProduct.unitLabel || 'piece',
     }
-    const addQty = Math.max(1, variantPickerQty)
+
+    let stockExceeded = false
     setItems(cur => {
       const ex = cur.find(i => (i.variantId === selectedVariant.id || String(i.id) === String(selectedVariant.id)))
       if (!ex) {
@@ -375,18 +417,32 @@ export default function Pos(props: PosProps = {}) {
         item.parentProductId = String(variantPickerProduct.id)
         return [item, ...cur]
       }
+      if (ex.qty + addQty > vStock) {
+        setError(`Cannot add ${addQty} more. Total cart quantity (${ex.qty + addQty}) would exceed stock (${vStock})`)
+        stockExceeded = true
+        return cur
+      }
       return cur.map(i => (i.variantId === selectedVariant.id || String(i.id) === String(selectedVariant.id)) ? recalc(i, i.qty + addQty) : i)
     })
-    setVariantPickerProduct(null)
-    setSelectedVariant(null)
-    setVariantPickerQty(1)
-    setAvailableVariants([])
-    setMobilePanelView('catalogue')
+
+    if (!stockExceeded) {
+      setVariantPickerProduct(null)
+      setSelectedVariant(null)
+      setVariantPickerQty(1)
+      setAvailableVariants([])
+      setMobilePanelView('catalogue')
+    }
   }
 
   // Barcode scanner item handler (Consecutive scan increments cart quantity)
   const handleScannedItem = (scanned: ScannedItemPayload) => {
     setError('')
+    const targetStock = Number(scanned.stock) || 0
+    if (targetStock <= 0) {
+      setError(`"${scanned.product_name}${scanned.variant_name ? ` (${scanned.variant_name})` : ''}" is out of stock (Stock: 0)`)
+      return
+    }
+
     const targetId = scanned.variant_id ? scanned.variant_id : scanned.product_id
 
     setItems(cur => {
@@ -399,8 +455,8 @@ export default function Pos(props: PosProps = {}) {
           remedy: [],
           price: scanned.price,
           offerPrice: scanned.offer_price || null,
-          stock: scanned.stock,
-          stockQuantity: scanned.stock,
+          stock: targetStock,
+          stockQuantity: targetStock,
           hasVariants: false,
           unitType: 'unit',
           unitLabel: scanned.variant_name || 'piece',
@@ -422,6 +478,11 @@ export default function Pos(props: PosProps = {}) {
         item.variantName = scanned.variant_name || undefined
         item.parentProductId = String(scanned.product_id)
         return [...cur, item]
+      }
+
+      if (ex.qty + 1 > targetStock) {
+        setError(`"${scanned.product_name}${scanned.variant_name ? ` (${scanned.variant_name})` : ''}" cannot exceed available stock (${targetStock})`)
+        return cur
       }
 
       // Existing item: increment quantity by 1
@@ -449,7 +510,14 @@ export default function Pos(props: PosProps = {}) {
       const prod = record.product
       const varnt = record.variant
       if (!prod.name) throw new Error('Product missing name field')
-      const effectiveStock = varnt ? (Number(varnt.stock) || 0) : 999
+      const prodStock = prod.stock_quantity != null ? Number(prod.stock_quantity) : (prod.stock != null ? Number(prod.stock) : 0)
+      const effectiveStock = varnt ? (Number(varnt.stock) || 0) : prodStock
+
+      if (effectiveStock <= 0) {
+        setError(`"${prod.name}${varnt?.variant_name ? ` (${varnt.variant_name})` : ''}" is out of stock (Stock: 0)`)
+        return
+      }
+
       const price = varnt?.price ? Number(varnt.price) : Number(prod.price)
 
       const payload: ScannedItemPayload = {
@@ -553,7 +621,10 @@ export default function Pos(props: PosProps = {}) {
     }
   }
 
-  const removeItem = (id: string | number) => setItems(cur => cur.filter(i => i.id !== id))
+  const removeItem = (id: string | number) => {
+    setError('')
+    setItems(cur => cur.filter(i => i.id !== id))
+  }
 
   const updateItem = (id: string | number, field: 'name' | 'basePrice' | 'qty', value: string | number) => {
     setItems(cur => cur.map((item) => {
@@ -562,9 +633,16 @@ export default function Pos(props: PosProps = {}) {
       if (field === 'basePrice') {
         safeVal = Math.max(0, Number(value) || 0)
       } else if (field === 'qty') {
-        safeVal = item.allowDecimalQuantity
-          ? Math.max(0.001, Number(value) || 0.001)
-          : Math.max(1, Number(value) || 1)
+        const parsed = Number(value) || 0
+        const maxStock = item.source === 'manual' || item.category === 'Unregistered' ? 999999 : (item.stockQuantity ?? item.stock ?? 999999)
+        if (parsed > maxStock) {
+          setError(`"${item.name}" cannot exceed available stock (${maxStock})`)
+          safeVal = maxStock
+        } else {
+          safeVal = item.allowDecimalQuantity
+            ? Math.max(0.001, parsed || 0.001)
+            : Math.max(1, Math.round(parsed) || 1)
+        }
       }
       const nextItem = { ...item, [field]: safeVal } as PosItem
       return field === 'basePrice' || field === 'qty' ? recalc(nextItem, nextItem.qty) : nextItem
@@ -581,11 +659,17 @@ export default function Pos(props: PosProps = {}) {
   }
 
   const bumpQty = (id: string | number, delta: number) => {
+    setError('')
     setItems(cur => {
       const ex = cur.find(i => i.id === id)
       if (!ex) return cur
       const next = ex.qty + delta
       if (next <= 0) return cur.filter(i => i.id !== id)
+      const maxStock = ex.source === 'manual' || ex.category === 'Unregistered' ? 999999 : (ex.stockQuantity ?? ex.stock ?? 999999)
+      if (delta > 0 && next > maxStock) {
+        setError(`"${ex.name}" cannot exceed available stock (${maxStock})`)
+        return cur
+      }
       return cur.map(i => i.id === id ? recalc(i, next) : i)
     })
   }
@@ -593,7 +677,13 @@ export default function Pos(props: PosProps = {}) {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const setQty = (id: string | number, val: number) => {
     if (val <= 0) { removeItem(id); return }
-    setItems(cur => cur.map(i => i.id === id ? recalc(i, val) : i))
+    const item = items.find(i => i.id === id)
+    const maxStock = item && (item.source === 'manual' || item.category === 'Unregistered') ? 999999 : (item?.stockQuantity ?? item?.stock ?? 999999)
+    const safeVal = Math.min(val, maxStock)
+    if (val > maxStock && item) {
+      setError(`"${item.name}" cannot exceed available stock (${maxStock})`)
+    }
+    setItems(cur => cur.map(i => i.id === id ? recalc(i, safeVal) : i))
   }
 
   const clearAll = () => {
@@ -1269,6 +1359,18 @@ export default function Pos(props: PosProps = {}) {
                   <span className="tracking-wide">Add Item</span>
                 </button>
               </div>
+
+              {error && (
+                <div className="flex items-center justify-between gap-2 p-2.5 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs font-bold animate-in fade-in-50">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <AlertCircle size={15} className="text-red-500 shrink-0" />
+                    <span className="truncate">{error}</span>
+                  </div>
+                  <button type="button" onClick={() => setError('')} className="p-1 rounded hover:bg-red-100 text-red-500 shrink-0">
+                    <X size={13} />
+                  </button>
+                </div>
+              )}
             </div>
 
             {/* Table Header */}
@@ -2016,25 +2118,39 @@ export default function Pos(props: PosProps = {}) {
                   Available Sizes &amp; Options ({availableVariants.length})
                 </label>
                 <div className="grid grid-cols-2 gap-2.5 max-h-52 overflow-y-auto overscroll-y-contain pr-1">
-                  {availableVariants.map((v) => (
-                    <div
-                      key={v.id}
-                      onClick={() => setSelectedVariant(v)}
-                      className={`p-3 rounded-2xl border-2 cursor-pointer transition-all flex flex-col justify-between ${
-                        selectedVariant?.id === v.id
-                          ? 'border-[#0A0A0A] bg-[#FFF9E6] shadow-xs'
-                          : 'border-gray-200 bg-white hover:border-gray-300'
-                      }`}
-                    >
-                      <div className="font-black text-xs text-gray-900">
-                        {v.variantName}
+                  {availableVariants.map((v) => {
+                    const isOutOfStock = (Number(v.stock) || 0) <= 0
+                    return (
+                      <div
+                        key={v.id}
+                        onClick={() => {
+                          if (!isOutOfStock) setSelectedVariant(v)
+                        }}
+                        className={`p-3 rounded-2xl border-2 transition-all flex flex-col justify-between ${
+                          isOutOfStock
+                            ? 'border-red-200 bg-red-50/20 opacity-60 cursor-not-allowed'
+                            : selectedVariant?.id === v.id
+                              ? 'border-[#0A0A0A] bg-[#FFF9E6] shadow-xs cursor-pointer'
+                              : 'border-gray-200 bg-white hover:border-gray-300 cursor-pointer'
+                        }`}
+                      >
+                        <div className="font-black text-xs text-gray-900 flex items-center justify-between">
+                          <span>{v.variantName}</span>
+                          {isOutOfStock && (
+                            <span className="text-[9px] font-black text-red-600 bg-red-50 border border-red-200 px-1 py-0.5 rounded">
+                              OUT
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-center justify-between mt-2 pt-1 border-t border-gray-100 text-[11px]">
+                          <span className="font-black text-black">₹{v.price}</span>
+                          <span className={`text-[10px] font-bold ${isOutOfStock ? 'text-red-600' : 'text-emerald-700'}`}>
+                            Stock: {v.stock}
+                          </span>
+                        </div>
                       </div>
-                      <div className="flex items-center justify-between mt-2 pt-1 border-t border-gray-100 text-[11px]">
-                        <span className="font-black text-black">₹{v.price}</span>
-                        <span className="text-[10px] text-emerald-700 font-bold">Stock: {v.stock}</span>
-                      </div>
-                    </div>
-                  ))}
+                    )
+                  })}
                 </div>
               </div>
 
@@ -2054,8 +2170,12 @@ export default function Pos(props: PosProps = {}) {
                   </span>
                   <button
                     type="button"
-                    onClick={() => setVariantPickerQty((q) => q + 1)}
-                    className="w-8 h-8 rounded-xl border border-gray-300 bg-white font-black text-sm flex items-center justify-center hover:bg-gray-100 cursor-pointer"
+                    onClick={() => {
+                      const maxVStock = Number(selectedVariant?.stock) || 1
+                      setVariantPickerQty((q) => Math.min(maxVStock, q + 1))
+                    }}
+                    disabled={!selectedVariant || (Number(selectedVariant.stock) || 0) <= variantPickerQty}
+                    className="w-8 h-8 rounded-xl border border-gray-300 bg-white font-black text-sm flex items-center justify-center hover:bg-gray-100 disabled:opacity-40 cursor-pointer"
                   >
                     +
                   </button>
@@ -2063,13 +2183,21 @@ export default function Pos(props: PosProps = {}) {
               </div>
 
               {/* Add Button */}
-              <button
-                type="button"
-                onClick={addVariantToItems}
-                className="w-full py-3 rounded-2xl bg-[#0A0A0A] border border-[var(--accent)] text-[var(--accent)] text-xs font-black uppercase tracking-wider hover:bg-[#1A1A1A] transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer"
-              >
-                Add to Order (₹{((selectedVariant?.price || variantPickerProduct.price || 0) * variantPickerQty).toFixed(2)})
-              </button>
+              {(() => {
+                const isSelectedOutOfStock = !selectedVariant || (Number(selectedVariant.stock) || 0) <= 0
+                return (
+                  <button
+                    type="button"
+                    disabled={isSelectedOutOfStock}
+                    onClick={addVariantToItems}
+                    className="w-full py-3 rounded-2xl bg-[#0A0A0A] border border-[var(--accent)] text-[var(--accent)] text-xs font-black uppercase tracking-wider hover:bg-[#1A1A1A] disabled:opacity-40 disabled:cursor-not-allowed transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer"
+                  >
+                    {isSelectedOutOfStock
+                      ? 'Out of Stock'
+                      : `Add to Order (₹${((selectedVariant?.price || variantPickerProduct.price || 0) * variantPickerQty).toFixed(2)})`}
+                  </button>
+                )
+              })()}
             </div>
           </div>
         </div></ModalPortal>

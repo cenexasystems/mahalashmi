@@ -156,7 +156,14 @@ export const BarcodeScannerInput: React.FC<BarcodeScannerInputProps> = ({
       const prod = record.product
       const varnt = record.variant
 
-      const effectiveStock = varnt ? (Number(varnt.stock) || 0) : 999
+      const prodStock = prod.stock_quantity != null ? Number(prod.stock_quantity) : (prod.stock != null ? Number(prod.stock) : 0)
+      const effectiveStock = varnt ? (Number(varnt.stock) || 0) : prodStock
+
+      if (effectiveStock <= 0) {
+        playBeep(false)
+        setErrorMsg(`"${prod.name}${varnt?.variant_name ? ` (${varnt.variant_name})` : ''}" is out of stock (Stock: 0)`)
+        return
+      }
 
       const price = varnt?.price ? Number(varnt.price) : Number(prod.price)
 

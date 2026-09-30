@@ -18,6 +18,8 @@ export interface BarcodeRegistryRecord {
     offer_price?: number
     image_url?: string
     category?: string
+    stock_quantity?: number
+    stock?: number
   }
   variant?: {
     id: string
@@ -89,7 +91,7 @@ export const barcodeService = {
       .from('barcode_registry')
       .select(`
         id, barcode_value, entity_type, product_id, variant_id, is_active, created_by_name, created_at, updated_at,
-        product:products (id, name, name_ta, price, offer_price, image_url, category),
+        product:products (id, name, name_ta, price, offer_price, image_url, category, stock_quantity, stock),
         variant:product_variants (id, variant_name, price, stock, sku)
       `)
       .ilike('barcode_value', cleanValue)
@@ -114,7 +116,7 @@ export const barcodeService = {
     // 2. Fallback: Check product_variants.barcode (case-insensitive)
     const { data: varData } = await supabase
       .from('product_variants')
-      .select('id, product_id, variant_name, price, stock, sku, barcode, product:products (id, name, name_ta, price, offer_price, image_url, category)')
+      .select('id, product_id, variant_name, price, stock, sku, barcode, product:products (id, name, name_ta, price, offer_price, image_url, category, stock_quantity, stock)')
       .ilike('barcode', cleanValue)
       .maybeSingle()
 
@@ -144,7 +146,7 @@ export const barcodeService = {
     // 3. Fallback: Check products.barcode (case-insensitive)
     const { data: prodData } = await supabase
       .from('products')
-      .select('id, name, name_ta, price, offer_price, image_url, category, barcode, stock_quantity')
+      .select('id, name, name_ta, price, offer_price, image_url, category, barcode, stock_quantity, stock')
       .ilike('barcode', cleanValue)
       .maybeSingle()
 
@@ -175,7 +177,7 @@ export const barcodeService = {
       .from('barcode_registry')
       .select(`
         id, barcode_value, entity_type, product_id, variant_id, is_active, created_by_name, created_at, updated_at,
-        product:products (id, name, name_ta, price, offer_price, image_url, category),
+        product:products (id, name, name_ta, price, offer_price, image_url, category, stock_quantity, stock),
         variant:product_variants (id, variant_name, price, stock, sku)
       `, { count: 'exact' })
       .order('created_at', { ascending: false })
