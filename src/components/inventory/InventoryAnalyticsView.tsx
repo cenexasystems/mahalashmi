@@ -20,6 +20,7 @@ import { downloadCsv, type XlsxColumn } from '../../lib/xlsxExport'
 import { getPresetDates } from '../../lib/dateRanges'
 import { csvDate } from '../../lib/csv'
 import { lowStockLimit } from '../../lib/stockLevels'
+import { isSupabaseConfigured, supabase } from '../../lib/supabase'
 
 export const InventoryAnalyticsView: React.FC = () => {
   const [range, setRange] = useState<'all' | 'today' | 'week' | 'month'>('all')
@@ -58,6 +59,35 @@ export const InventoryAnalyticsView: React.FC = () => {
 
   useEffect(() => {
     void loadAnalytics()
+  }, [loadAnalytics])
+
+  // Keep this report in sync across devices while it is open. Focus/visibility
+  // refreshes also catch up after a device was asleep or temporarily offline.
+  useEffect(() => {
+    if (!isSupabaseConfigured) return
+
+    let refreshTimer: ReturnType<typeof setTimeout> | undefined
+    const refreshSoon = () => {
+      if (refreshTimer) clearTimeout(refreshTimer)
+      refreshTimer = setTimeout(() => void loadAnalytics(), 300)
+    }
+    const channel = supabase
+      .channel('inventory-analytics-live-refresh')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'inventory_movements' }, refreshSoon)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'products' }, refreshSoon)
+      .subscribe()
+    const refreshWhenVisible = () => {
+      if (document.visibilityState === 'visible') refreshSoon()
+    }
+    window.addEventListener('focus', refreshSoon)
+    document.addEventListener('visibilitychange', refreshWhenVisible)
+
+    return () => {
+      if (refreshTimer) clearTimeout(refreshTimer)
+      window.removeEventListener('focus', refreshSoon)
+      document.removeEventListener('visibilitychange', refreshWhenVisible)
+      void supabase.removeChannel(channel)
+    }
   }, [loadAnalytics])
 
   // Filter movements for the table

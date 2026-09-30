@@ -341,11 +341,25 @@ export const inventoryService = {
    * Aggregate stock movements math for Analytics & Reports.
    */
   async fetchInventoryAnalytics(startDate?: string, endDate?: string): Promise<InventoryAnalyticsSummary> {
-    const { movements } = await this.fetchMovements({
-      start_date: startDate,
-      end_date: endDate,
-      limit: 1000,
-    })
+    // Supabase/PostgREST caps rows per request. Page through the ledger so older
+    // movements are included in both the totals and the report table.
+    const movements: InventoryMovement[] = []
+    const pageSize = 1000
+    let offset = 0
+    let total = 0
+    let pageCount = pageSize
+    do {
+      const page = await this.fetchMovements({
+        start_date: startDate,
+        end_date: endDate,
+        limit: pageSize,
+        offset,
+      })
+      movements.push(...page.movements)
+      total = page.total
+      pageCount = page.movements.length
+      offset += pageCount
+    } while (offset < total && pageCount > 0)
 
     let incomingStock = 0
     let unitsSold = 0
@@ -369,7 +383,9 @@ export const inventoryService = {
       }
     }
 
-    const netDelta = incomingStock + unitsReturned - unitsSold - unitsDamaged
+    // Net stock change must include every ledger event, including corrections
+    // and voids (which restore stock), using the signed quantity delta as stored.
+    const netDelta = movements.reduce((sum, movement) => sum + (Number(movement.quantity_delta) || 0), 0)
 
     return {
       incomingStock,
@@ -377,7 +393,7 @@ export const inventoryService = {
       unitsDamaged,
       unitsReturned,
       netDelta,
-      totalMovementsCount: movements.length,
+      totalMovementsCount: total,
       movements,
     }
   },
