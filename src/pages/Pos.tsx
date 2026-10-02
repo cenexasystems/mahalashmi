@@ -802,7 +802,7 @@ export default function Pos(props: PosProps = {}) {
           variant_name: item.variantName || null, name: item.name, category: item.category,
           description: item.note || '', quantity: item.qty, unit: item.selectedUnit, unit_type: item.unitType,
           base_quantity: item.baseQuantity, base_price: Number(item.basePrice) || 0, line_total: lineTotal,
-          source: 'advance_order', note: item.note || null,
+          source: 'advance_order', is_manual: item.source === 'manual' || item.category === 'Unregistered', note: item.note || null,
         }
       })
       const created = await createAdvanceOrder({

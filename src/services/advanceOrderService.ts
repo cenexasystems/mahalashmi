@@ -376,25 +376,26 @@ export async function completeAdvanceOrder(
   let result: { order_id: string; invoice_no: string; completed_at: string } | null = null
 
   if (isSupabaseConfigured) {
-    try {
-      const { data, error } = await supabase.rpc('complete_advance_order_v2', {
-        p_order_id: orderId,
-        p_payment_method: paymentMethod,
-        p_final_amount: finalAmount,
-        p_coupon_code: couponCode,
-        p_coupon_percentage: couponPercentage,
-        p_manual_discount: manualDiscountAmount,
-        p_remarks: remarks
-      })
-      if (error) {
-        console.error('[completeAdvanceOrder] Supabase error:', error.message)
-      } else if (data) {
-        const row = Array.isArray(data) ? data[0] : data
-        result = row as { order_id: string; invoice_no: string; completed_at: string }
-      }
-    } catch (err: unknown) {
-      console.error('[completeAdvanceOrder] Exception:', err)
+    // The server creates the completed bill in public.orders, which is what
+    // sends it to order management and takes its items off stock. Never fake a
+    // local invoice here: that would mark the order completed with no bill and
+    // no stock change.
+    const { data, error } = await supabase.rpc('complete_advance_order_v2', {
+      p_order_id: orderId,
+      p_payment_method: paymentMethod,
+      p_final_amount: finalAmount,
+      p_coupon_code: couponCode,
+      p_coupon_percentage: couponPercentage,
+      p_manual_discount: manualDiscountAmount,
+      p_remarks: remarks
+    })
+    if (error) {
+      console.error('[completeAdvanceOrder] Supabase error:', error.message)
+      throw new Error(`Unable to complete advance order on the server: ${error.message}`)
     }
+    const row = (Array.isArray(data) ? data[0] : data) as { order_id: string; invoice_no: string; completed_at: string } | null
+    if (!row?.order_id) throw new Error('Unable to complete advance order: the server did not return the final bill')
+    result = row
   }
 
   const localOrders = loadLocalOrders()
