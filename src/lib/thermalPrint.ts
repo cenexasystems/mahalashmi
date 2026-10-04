@@ -51,6 +51,7 @@ export function printThermalReceipt(data: ThermalReceiptData) {
   if (!doc) return
 
   const liveSettings = useSettingsStore.getState().settings
+  const showTamil = liveSettings?.showTamilOnBills !== false
   const storeName = data.storeName || liveSettings?.name || BRAND_EN
   const storeAddress = data.storeAddress || liveSettings?.address || BRAND_ADDRESS
   const storePhone = data.storePhone || liveSettings?.phone || BRAND_PRIMARY_PHONE_DISPLAY
@@ -154,7 +155,7 @@ export function printThermalReceipt(data: ThermalReceiptData) {
                 <tr>
                   <td class="text-left item-name">
                     ${item.name}
-                    ${item.name_ta ? `<div style="font-size: 10px; font-weight: normal; font-family: 'Noto Sans Tamil', 'Latha', 'Tamil Sangam MN', sans-serif;">${item.name_ta}</div>` : ''}
+                    ${showTamil && item.name_ta ? `<div style="font-size: 10px; font-weight: normal; font-family: 'Noto Sans Tamil', 'Latha', 'Tamil Sangam MN', sans-serif;">${item.name_ta}</div>` : ''}
                     <span style="font-size: 9px; color: #000;">@ ${formatCurrency(item.price)}${unit ? ` / ${unit}` : ' each'}</span>
                   </td>
                   <td class="text-right">${item.qty}</td>

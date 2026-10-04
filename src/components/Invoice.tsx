@@ -101,6 +101,7 @@ export const Invoice: React.FC<InvoiceProps> = ({
   const shopPhone = storeSettings?.phone || BRAND_PRIMARY_PHONE_DISPLAY
   const shopEmail = storeSettings?.email || BRAND_EMAIL
   const shopInstagram = storeSettings?.instagramHandle || BRAND_INSTAGRAM
+  const showTamil = storeSettings?.showTamilOnBills !== false
 
   return (
     <div
@@ -192,7 +193,7 @@ export const Invoice: React.FC<InvoiceProps> = ({
               const normalized = normalizeStructuredOrderItem(item as unknown as Record<string, unknown>)
               const giftNote = String(normalized.special_offer_note || item.special_offer_note || '').trim()
               const giftValue = Number(normalized.special_offer_cost ?? item.special_offer_cost) || 0
-              const tamilName = normalized.name_ta || normalized.nameTa || item.name_ta || item.nameTa
+              const tamilName = showTamil ? (normalized.name_ta || normalized.nameTa || item.name_ta || item.nameTa) : null
               return (
                 <React.Fragment key={idx}>
                 <tr style={{ borderBottom: giftNote ? 'none' : '1px solid #f0f0f0' }}>

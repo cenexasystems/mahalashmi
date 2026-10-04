@@ -799,7 +799,7 @@ export default function Pos(props: PosProps = {}) {
         allocated += lineTotal
         return {
           product_id: item.parentProductId || toProductId(item.id), variant_id: item.variantId || null,
-          variant_name: item.variantName || null, name: item.name, category: item.category,
+          variant_name: item.variantName || null, name: item.name, name_ta: (item as unknown as { name_ta?: string; nameTa?: string }).name_ta || (item as unknown as { name_ta?: string; nameTa?: string }).nameTa || null, category: item.category,
           description: item.note || '', quantity: item.qty, unit: item.selectedUnit, unit_type: item.unitType,
           base_quantity: item.baseQuantity, base_price: Number(item.basePrice) || 0, line_total: lineTotal,
           source: 'advance_order', is_manual: item.source === 'manual' || item.category === 'Unregistered', note: item.note || null,

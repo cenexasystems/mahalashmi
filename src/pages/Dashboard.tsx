@@ -1083,6 +1083,8 @@ export default function Dashboard() {
       phone: order.phone,
       items: (preview.items as Array<{
         name?: string
+        name_ta?: string | null
+        nameTa?: string | null
         product_name?: string
         qty?: number
         quantity?: number
@@ -1094,6 +1096,7 @@ export default function Dashboard() {
         special_offer_cost?: number | null
       }>).map((item) => ({
         name: item.name || item.product_name || '',
+        name_ta: item.name_ta || item.nameTa || null,
         qty: item.qty || item.quantity || 0,
         unit: item.unit || '',
         price: item.price || item.base_price || 0,

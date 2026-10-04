@@ -45,7 +45,7 @@ export default function StoreSettingsView({ onAddProduct }: StoreSettingsViewPro
   const [form, setForm] = useState({
     name: '', ownerName: '', phone: '', shopContactNumber: '', email: '', address: '', instagramHandle: '',
     businessType: '', accentColor: '#2E7D32',
-    gstEnabled: false, lowStockThreshold: 5, expiryAlertDays: 30,
+    gstEnabled: false, lowStockThreshold: 5, expiryAlertDays: 30, showTamilOnBills: true,
   })
   const [saveMsg, setSaveMsg] = useState<{ type: 'ok' | 'err'; text: string } | null>(null)
   const [logoUploading, setLogoUploading] = useState(false)
@@ -75,6 +75,7 @@ export default function StoreSettingsView({ onAddProduct }: StoreSettingsViewPro
     gstEnabled: s.gstEnabled,
     lowStockThreshold: s.lowStockThreshold,
     expiryAlertDays: s.expiryAlertDays,
+    showTamilOnBills: s.showTamilOnBills,
   })
 
   // Sync the editable form from freshly-fetched/updated settings. Done during
@@ -395,6 +396,17 @@ export default function StoreSettingsView({ onAddProduct }: StoreSettingsViewPro
                 <span>
                   <span className="block text-[13px] font-bold text-[#111111]">Enable GST Billing in POS</span>
                   <span className="block text-[11px] text-[#6B7280]">When enabled, GST line items are computed on invoices.</span>
+                </span>
+              </label>
+              <label className="flex items-start gap-2.5 sm:mt-6 cursor-pointer">
+                <input
+                  type="checkbox" checked={form.showTamilOnBills}
+                  onChange={e => setForm(f => ({ ...f, showTamilOnBills: e.target.checked }))}
+                  className="mt-0.5 w-4 h-4 accent-[var(--accent)]"
+                />
+                <span>
+                  <span className="block text-[13px] font-bold text-[#111111]">Show Tamil Names on Bills</span>
+                  <span className="block text-[11px] text-[#6B7280]">Prints each product's Tamil name under its name on invoices and thermal receipts. Never included in exports.</span>
                 </span>
               </label>
             </div>

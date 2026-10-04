@@ -121,6 +121,8 @@ export interface StoreSettings {
   businessType: string
   /** Separate shop/business contact number, distinct from the owner's personal phone. */
   shopContactNumber: string
+  /** Print each product's Tamil name under its English name on invoices and bills. */
+  showTamilOnBills: boolean
 }
 
 export interface StoreSettingsInput {
@@ -136,6 +138,7 @@ export interface StoreSettingsInput {
   accentColor: string
   businessType: string
   shopContactNumber: string
+  showTamilOnBills: boolean
 }
 
 interface SettingsState {
@@ -471,6 +474,7 @@ export const useSettingsStore = create<SettingsState>()((set) => ({
             accentColor: data.accent_color || '#2E7D32',
             businessType: data.business_type || '',
             shopContactNumber: data.shop_contact_number || '',
+            showTamilOnBills: data.show_tamil_on_bills ?? true,
           },
           loading: false
         })
@@ -500,6 +504,7 @@ export const useSettingsStore = create<SettingsState>()((set) => ({
         accentColor: '#2E7D32',
         businessType: '',
         shopContactNumber: '',
+        showTamilOnBills: true,
       },
       loading: false
     })
@@ -510,7 +515,7 @@ export const useSettingsStore = create<SettingsState>()((set) => ({
       return { error: null }
     }
     set({ saving: true })
-    const { error } = await supabase.from('store_settings').update({
+    const payload = {
       name: input.name,
       owner_name: input.ownerName,
       phone: input.phone,
@@ -523,8 +528,21 @@ export const useSettingsStore = create<SettingsState>()((set) => ({
       accent_color: input.accentColor,
       business_type: input.businessType,
       shop_contact_number: input.shopContactNumber,
+      show_tamil_on_bills: input.showTamilOnBills,
       updated_at: new Date().toISOString(),
-    }).eq('id', 1)
+    }
+    let { error } = await supabase.from('store_settings').update(payload).eq('id', 1)
+    // Until store_tamil_on_bills.sql is run the column is missing; save the
+    // other settings anyway instead of failing the whole form.
+    if (error && error.message.includes('show_tamil_on_bills')) {
+      const { show_tamil_on_bills: _omit, ...rest } = payload
+      void _omit
+      const retry = await supabase.from('store_settings').update(rest).eq('id', 1)
+      set({ saving: false })
+      if (retry.error) return { error: retry.error.message }
+      set((state) => state.settings ? { settings: { ...state.settings, ...input, showTamilOnBills: state.settings.showTamilOnBills } } : state)
+      return { error: 'Other settings saved. To save the Tamil names option, run supabase/migrations/store_tamil_on_bills.sql in the Supabase SQL Editor.' }
+    }
     set({ saving: false })
     if (error) return { error: error.message }
     set((state) => state.settings ? { settings: { ...state.settings, ...input } } : state)
