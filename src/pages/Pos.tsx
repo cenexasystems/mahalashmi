@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import {
   Search, Trash2, Plus, Receipt, Printer,
   RefreshCw, ShoppingBag, MessageCircle,
-  X, ChevronDown, Power, AlertCircle
+  X, ChevronDown, Power, AlertCircle, Pencil
 } from 'lucide-react'
 import { isSupabaseConfigured, supabase } from '../lib/supabase'
 import { getErrorMessage } from '../lib/errorMessage'
@@ -146,6 +146,9 @@ export default function Pos(props: PosProps = {}) {
   const [activeCategory, setActiveCategory] = useState('All')
   const [items, setItems] = useState<PosItem[]>([])
   const [editingOfferId, setEditingOfferId] = useState<string | number | null>(null)
+  // Cart line whose rate is being edited, and the typed value before it is applied.
+  const [editingRateId, setEditingRateId] = useState<string | number | null>(null)
+  const [rateDraft, setRateDraft] = useState('')
   const [quickAddBarcode, setQuickAddBarcode] = useState('')
   const [scanResetTick, setScanResetTick] = useState(0)
   const [customer, setCustomer] = useState({ name: '', phone: '', address: '' })
@@ -650,6 +653,61 @@ export default function Pos(props: PosProps = {}) {
       const nextItem = { ...item, [field]: safeVal } as PosItem
       return field === 'basePrice' || field === 'qty' ? recalc(nextItem, nextItem.qty) : nextItem
     }))
+  }
+
+  const startRateEdit = (item: PosItem) => {
+    setEditingRateId(item.id)
+    setRateDraft(String(Number(item.basePrice) || 0))
+  }
+
+  const commitRateEdit = () => {
+    if (editingRateId == null) return
+    const parsed = Number(rateDraft)
+    if (rateDraft.trim() !== '' && Number.isFinite(parsed) && parsed >= 0) {
+      updateItem(editingRateId, 'basePrice', Math.round(parsed * 100) / 100)
+    }
+    setEditingRateId(null)
+  }
+
+  const renderRate = (item: PosItem, size: 'mobile' | 'desktop') => {
+    const isMobile = size === 'mobile'
+    if (editingRateId === item.id) {
+      return (
+        <input
+          type="number"
+          min="0"
+          step="0.01"
+          inputMode="decimal"
+          autoFocus
+          value={rateDraft}
+          onChange={e => setRateDraft(e.target.value)}
+          onFocus={e => e.target.select()}
+          onBlur={commitRateEdit}
+          onKeyDown={e => {
+            if (e.key === 'Enter') { e.preventDefault(); commitRateEdit() }
+            if (e.key === 'Escape') setEditingRateId(null)
+          }}
+          aria-label={`Rate for ${item.name}`}
+          className={isMobile
+            ? 'h-11 w-full rounded-xl border border-[var(--accent)] bg-white px-3 text-right text-[14px] font-black text-[#111111] outline-none'
+            : 'w-20 rounded-md border border-[var(--accent)] bg-white px-2 py-1 text-right text-[13px] font-black text-[#111111] outline-none'}
+        />
+      )
+    }
+    return (
+      <button
+        type="button"
+        onClick={() => startRateEdit(item)}
+        title="Edit rate"
+        aria-label={`Edit rate for ${item.name}`}
+        className={isMobile
+          ? 'h-11 w-full rounded-xl border border-gray-200 bg-[#FAFAFA] px-3 flex items-center justify-end gap-1.5 text-[14px] font-black text-[#111111] hover:border-[var(--accent)] cursor-pointer'
+          : 'inline-flex items-center gap-1 rounded-md px-1.5 py-1 text-[13px] font-black text-[#111111] tracking-tight hover:bg-[#F3F4F6] cursor-pointer'}
+      >
+        ₹{Number(item.basePrice || 0).toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
+        <Pencil size={isMobile ? 13 : 11} className="text-[#9CA3AF]" />
+      </button>
+    )
   }
 
   const updateItemOffer = (id: string | number, note: string) => {
@@ -1534,9 +1592,7 @@ export default function Pos(props: PosProps = {}) {
                     <div className="grid grid-cols-2 gap-3">
                       <div>
                         <p className="text-[12px] font-black uppercase tracking-wider text-[#374151] mb-1">Unit Price</p>
-                        <div className="h-11 rounded-xl border border-gray-200 bg-[#FAFAFA] px-3 flex items-center justify-end text-[14px] font-black text-[#111111]">
-                          ₹{Number(item.basePrice || 0).toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
-                        </div>
+                        {renderRate(item, 'mobile')}
                       </div>
                       <div>
                         <p className="text-[12px] font-black uppercase tracking-wider text-[#374151] mb-1">Total</p>
@@ -1649,9 +1705,7 @@ export default function Pos(props: PosProps = {}) {
 
                     {/* Price */}
                     <div className="flex items-center justify-end px-3 py-2 text-right">
-                      <span className="text-[13px] font-black text-[#111111] tracking-tight">
-                        ₹{Number(item.basePrice || 0).toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
-                      </span>
+                      {renderRate(item, 'desktop')}
                     </div>
 
                     {/* Quantity Controls */}
