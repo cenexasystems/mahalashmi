@@ -527,7 +527,10 @@ export default function Pos(props: PosProps = {}) {
         name_ta: prod.name_ta,
         variant_name: varnt?.variant_name,
         price: price,
-        offer_price: prod.offer_price ? Number(prod.offer_price) : undefined,
+        // A variant has its own price; the product's offer price belongs to the
+        // product (usually its first variant), so applying it here billed every
+        // scanned variant at that one price.
+        offer_price: !varnt && prod.offer_price ? Number(prod.offer_price) : undefined,
         stock: effectiveStock,
         barcode: clean,
         image_url: prod.image_url,

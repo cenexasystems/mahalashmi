@@ -142,7 +142,8 @@ export const CreateBarcodeModal: React.FC<CreateBarcodeModalProps> = ({
           const matched = targetVariantId ? vars.find(v => v.id === targetVariantId) : vars[0]
           const chosen = matched || vars[0]
           setSelectedVariant(chosen)
-          if (chosen.barcode) setItemCode(chosen.barcode)
+          // Each variant needs its own code: never reuse the product's barcode.
+          setItemCode(chosen.barcode || `${BRAND_MONOGRAM}${Math.floor(1000000 + Math.random() * 9000000)}`)
           setLine2(`Size: ${chosen.variantName}`)
           if (chosen.price) {
             setLine3(settings.showDiscount ? 'Discount: 0%' : `Price: ₹${chosen.price}`)
@@ -225,7 +226,9 @@ export const CreateBarcodeModal: React.FC<CreateBarcodeModalProps> = ({
     const v = variants.find((item) => item.id === varId)
     if (!v) return
     setSelectedVariant(v)
-    if (v.barcode) setItemCode(v.barcode)
+    // A variant without a barcode gets a fresh code instead of keeping the
+    // previous variant's, which made every variant label scan as the first one.
+    setItemCode(v.barcode || `${BRAND_MONOGRAM}${Math.floor(1000000 + Math.random() * 9000000)}`)
     setLine2(`Size: ${v.variantName}`)
     if (v.price) {
       setLine3(settings.showDiscount ? 'Discount: 0%' : `Price: ₹${v.price}`)
@@ -268,6 +271,15 @@ export const CreateBarcodeModal: React.FC<CreateBarcodeModalProps> = ({
       setStatusMessage({
         type: 'error',
         text: `This item (${selectedProduct.name}${selectedVariant ? ` - ${selectedVariant.variantName}` : ''}) is already added in the queue.`,
+      })
+      return
+    }
+
+    const codeInQueue = queue.find((it) => it.barcodeValue.trim().toUpperCase() === itemCode.trim().toUpperCase())
+    if (codeInQueue) {
+      setStatusMessage({
+        type: 'error',
+        text: `Barcode ${itemCode.trim()} is already used for ${codeInQueue.productName}${codeInQueue.variantName ? ` - ${codeInQueue.variantName}` : ''} in the queue. Click "Assign Code" for a new one.`,
       })
       return
     }
